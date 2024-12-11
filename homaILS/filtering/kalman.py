@@ -36,7 +36,7 @@ class KalmanFilter:
     def model_step(self, x, u=None):
         """
         Model step function of the Kalman Filter.
-        Computes the next state given the current state and control input,
+        Compute the next state given the current state and control input,
         without updating the state estimate.
         
         Parameters:
