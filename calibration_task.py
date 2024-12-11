@@ -20,6 +20,19 @@ def main():
     # Load the calibration dataset
     calibration_file_path = "data/Dataset_AoA_RSS_BLE51/calibration/beacons/beacons_calibration.txt"
     calibration_df = load_raw_dataset(calibration_file_path)
+    print("\nCalibration Data:")
+    print(calibration_df)
+
+    # Load the ground truth dataset for calibration
+    gt_calibration_file_path = "data/Dataset_AoA_RSS_BLE51/calibration/gt/gt_calibration.txt"
+    gt_calibration_df = load_gt1_dataset(gt_calibration_file_path)
+    print("\nGround Truth Calibration Data:")
+    print(gt_calibration_df)
+
+    # Create a dataset with the anchor nodes' information
+    anchors_df = create_anchors_dataset()
+    print("\nAnchors Data:")
+    print(anchors_df)
 
     # Take the arguments from the command line
     args = parse_args()
@@ -28,50 +41,32 @@ def main():
     # Filter calibration data
     calibration_df_filtered = filter_data(calibration_df, Anchor_ID=anchor_id)
     calibration_df_filtered = calibration_df_filtered.reset_index(drop=True)
-
-    # Print a preview of the filtered dataset
-    print("Filtered Calibration Data:")
+    print(f"Calibration Data for {anchor_id}:")
     print(calibration_df_filtered)
 
-    # Load the ground truth dataset for calibration
-    gt_calibration_file_path = "data/Dataset_AoA_RSS_BLE51/calibration/gt/gt_calibration.txt"
-    gt_calibration_df = load_gt1_dataset(gt_calibration_file_path)
-
-    # Print a preview of the ground truth dataset for calibration
-    print("\nGround Truth Calibration Data:")
-    print(gt_calibration_df)
-
     # Create an IntervalIndex from the start/end times
-    intervals = pd.IntervalIndex.from_arrays(gt_calibration_df['Start_Time'], gt_calibration_df['End_Time'], closed='both')
-    
+    intervals = pd.IntervalIndex.from_arrays(gt_calibration_df['Start_Time'], gt_calibration_df['End_Time'], closed='both')  
     # For each RSS timestamp, find which interval it falls into
     interval_positions = intervals.get_indexer(calibration_df_filtered['Epoch_Time'])
     calibration_df_filtered['GT_ID'] = interval_positions
     calibration_df_filtered = calibration_df_filtered[calibration_df_filtered['GT_ID'] != -1]
     calibration_df_filtered = calibration_df_filtered.reset_index(drop=True)
-    print("\nCalibration Data with GT_ID:")
+    print(f"\nCalibration Data for {anchor_id} with GT_ID:")
     print(calibration_df_filtered)
 
     # Take only the Channel = 37 with the 2nd polarization
     rss_df = filter_data(calibration_df_filtered, Channel=37)
     rss_df = rss_df[['RSS_2nd_Pol', 'GT_ID']]
-    # Drop the RSS values that have Z scores greater than 2
-    rss_df = rss_df[np.abs(rss_df['RSS_2nd_Pol'] - rss_df['RSS_2nd_Pol'].mean()) <= (2 * rss_df['RSS_2nd_Pol'].std())]
-    # Compute the mean RSS for each interval
-    rss_df= rss_df.groupby('GT_ID').mean()
-    # Reneme RSS_2nd_Pol to RSS
     rss_df = rss_df.rename(columns={'RSS_2nd_Pol': 'RSS'})
-    rss_df = rss_df.reset_index()
+    # Drop the RSS values that have Z scores greater than 2
+    rss_df = rss_df[np.abs(rss_df['RSS'] - rss_df['RSS'].mean()) <= (2 * rss_df['RSS'].std())]
+    # Group by GT_ID and compute mean and list aggregation
+    rss_df = rss_df.groupby('GT_ID')['RSS'].agg(Mean_RSS='mean', RSS_List=list).reset_index()
     print("\nRSS Data:")
     print(rss_df)
 
-    # Create a dataset with the anchor nodes' information
-    anchors_df = create_anchors_dataset()
-    print("\nAnchors Data:")
-    print(anchors_df)
     anchors_df_filtered = filter_data(anchors_df, Anchor_ID=anchor_id)
     anchors_df_filtered = anchors_df_filtered.reset_index(drop=True)
-
     # Extract the points as Nx2 and Mx2 arrays
     anchors_points = anchors_df_filtered[['Pos_x', 'Pos_y']].values  # Shape (M, 2)
     gt_points = gt_calibration_df[['GT_x','GT_y']].values  # Shape (N, 2)
@@ -86,19 +81,17 @@ def main():
 
     # Merge the RSS data with the ground truth calibration data
     cal_df = gt_calibration_df.merge(rss_df, left_index=True, right_on='GT_ID')
-    cal_df = cal_df[[f'Distance_to_{anchor_id}', 'RSS']]
+    cal_df = cal_df[['GT_ID', f'Distance_to_{anchor_id}', 'Mean_RSS', 'RSS_List']]
     # Sort the calibration data by distance to the anchor
     cal_df = cal_df.sort_values(by=f'Distance_to_{anchor_id}')
     cal_df = cal_df.reset_index(drop=True)
-    
-    # Print a preview of the ground truth dataset for calibration with the distances to each anchor
-    print("\nGround Truth Calibration Data with Distances:")
+    print("\nGround Truth Calibration Data with Distances sorted and RSS:")
     print(cal_df)
 
     # Take the logarithm (base 10) of the distances
     exp10_X = cal_df[f'Distance_to_{anchor_id}'].values.reshape(-1, 1)
     X = np.log10(exp10_X)
-    y = cal_df['RSS'].values
+    y = cal_df['Mean_RSS'].values
     # Fit a linear regression model
     model = LinearRegression()
     model.fit(X, y)
@@ -114,18 +107,24 @@ def main():
 
     # Plot the distances to the anchor vs. the RSS values
     plt.figure(num=1)
-    plt.scatter(exp10_X, y, color='red')
-    plt.plot(exp10_X, model.predict(X), color='black')
+    # Plot the RSS list values
+    all_rss_df = cal_df.explode('RSS_List')
+    exp10_XX = all_rss_df[f'Distance_to_{anchor_id}'].values
+    z = all_rss_df['RSS_List'].values
+    plt.scatter(exp10_XX, z, color='blue', marker='.', alpha=0.3, label='RSS values')
+    plt.scatter(exp10_X, y, color='red', marker='*', label='Mean RSS values')
+    plt.plot(exp10_X, model.predict(X), color='black', label='Log10 Regression Model')
     plt.xlabel(f'Distance to Anchor {anchor_id}')
     plt.ylabel('RSS')
     plt.title(f'RSS vs. Distance to Anchor {anchor_id}')
     plt.grid(True)
+    plt.legend()
     plt.show()
 
     # Plot the points of the calibration dataset in room from (0, 0) to (1200, 600)
     # Set label anchor_df['Anchor_ID'] to anchors points
     plt.figure(num=2)
-    plt.scatter(gt_calibration_df['GT_x'], gt_calibration_df['GT_y'], c='blue', marker='o')
+    plt.scatter(gt_calibration_df['GT_x'], gt_calibration_df['GT_y'], c='blue', marker='o', label='GT Points')
     plt.scatter(anchors_df['Pos_x'], anchors_df['Pos_y'], c='red', marker='o', s=100, label='Anchors')
     # Annotating points with labels
     for i, label in enumerate(anchors_df['Anchor_ID']):
@@ -138,6 +137,7 @@ def main():
     plt.ylabel('GT_y')
     plt.title('Ground Truth Calibration Points')
     plt.grid(True)
+    plt.legend()
     plt.show()
 
 
