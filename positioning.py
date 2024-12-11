@@ -3,8 +3,6 @@ from homaILS.modeling.linear import UniformLinearMotion
 from homaILS.filtering.kalman import KalmanFilter
 
 def main():
-    # Time step
-    dt = 1
 
     F, H, Q, R, P, B = UniformLinearMotion(dt=dt, q=0.1, r=0.1).get_params()
     
