@@ -44,6 +44,24 @@ def main():
     print(f"Calibration Data for {anchor_id}:")
     print(calibration_df_filtered)
 
+    # Plot the Ground Truth Calibration Points and Anchors
+    plt.figure(num=1)
+    plt.scatter(gt_calibration_df['GT_x'], gt_calibration_df['GT_y'], c='blue', marker='o', label='GT Points')
+    plt.scatter(anchors_df['Pos_x'], anchors_df['Pos_y'], c='red', marker='o', s=100, label='Anchors')
+    # Annotating points with labels
+    for i, label in enumerate(anchors_df['Anchor_ID']):
+        plt.text(anchors_df['Pos_x'][i], anchors_df['Pos_y'][i], label, fontsize=10)
+    # plot the room
+    plt.plot([0, 1200, 1200, 0, 0], [0, 0, 600, 600, 0], 'k-')
+    plt.xlim(-200, 1400)
+    plt.ylim(-200, 800)
+    plt.xlabel('GT_x')
+    plt.ylabel('GT_y')
+    plt.title('Ground Truth Calibration Points')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
     # Create an IntervalIndex from the start/end times
     intervals = pd.IntervalIndex.from_arrays(gt_calibration_df['Start_Time'], gt_calibration_df['End_Time'], closed='both')  
     # For each RSS timestamp, find which interval it falls into
@@ -106,7 +124,7 @@ def main():
     print("Estimated RSS at 1 meter (RSS_1m):", RSS_1m)
 
     # Plot the distances to the anchor vs. the RSS values
-    plt.figure(num=1)
+    plt.figure(num=2)
     # Plot the RSS list values
     all_rss_df = cal_df.explode('RSS_List')
     exp10_XX = all_rss_df[f'Distance_to_{anchor_id}'].values
@@ -117,25 +135,6 @@ def main():
     plt.xlabel(f'Distance to Anchor {anchor_id}')
     plt.ylabel('RSS')
     plt.title(f'RSS vs. Distance to Anchor {anchor_id}')
-    plt.grid(True)
-    plt.legend()
-    plt.show()
-
-    # Plot the points of the calibration dataset in room from (0, 0) to (1200, 600)
-    # Set label anchor_df['Anchor_ID'] to anchors points
-    plt.figure(num=2)
-    plt.scatter(gt_calibration_df['GT_x'], gt_calibration_df['GT_y'], c='blue', marker='o', label='GT Points')
-    plt.scatter(anchors_df['Pos_x'], anchors_df['Pos_y'], c='red', marker='o', s=100, label='Anchors')
-    # Annotating points with labels
-    for i, label in enumerate(anchors_df['Anchor_ID']):
-        plt.text(anchors_df['Pos_x'][i], anchors_df['Pos_y'][i], label, fontsize=10)
-    # plot the room
-    plt.plot([0, 1200, 1200, 0, 0], [0, 0, 600, 600, 0], 'k-')
-    plt.xlim(-200, 1400)
-    plt.ylim(-200, 800)
-    plt.xlabel('GT_x')
-    plt.ylabel('GT_y')
-    plt.title('Ground Truth Calibration Points')
     plt.grid(True)
     plt.legend()
     plt.show()
