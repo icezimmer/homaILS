@@ -3,8 +3,14 @@ from homaILS.modeling.linear import UniformLinearMotion
 from homaILS.filtering.kalman import KalmanFilter
 
 def main():
+    # Parameters
+    dt = 0.1    # time step
+    q = 0.001   # process noise
+    r = 0.5     # measurement noise
+    steps = 100
+    step_update = 5
 
-    F, H, Q, R, P, B = UniformLinearMotion(dt=dt, q=0.1, r=0.1).get_params()
+    F, H, Q, R, P, B = UniformLinearMotion(dt=dt, q=q, r=r).get_params()
     
     # Initialize the filter
     kf = KalmanFilter(F=F, H=H, Q=Q, R=R, P=P, B=B)
@@ -12,30 +18,9 @@ def main():
     # Initial state: Suppose we start at position = 0, velocity = 1 m/s
     x0 = np.array([[0], [1], [0], [1]])
     kf.initialize_state(x0)
-    
-     # Parameters
-    dt = 0.1    # time step
-    q = 0.001   # process noise
-    r = 0.5     # measurement noise
-    steps = 100
-    step_update = 5
 
     # model initial state (x=0, vx=1 m/s, y=0, vy=0.5 m/s)
-    model_state = np.array([[0],
-                           [1],
-                           [0],
-                           [0.5]])
-
-    # Create the motion model
-    model = UniformLinearMotion(dt, q, r)
-    F, H, Q, R, P, B = model.get_params()
-
-    # Initialize Kalman Filter
-    kf = KalmanFilter(F, H, Q, R, P, B)
-    kf.initialize_state(np.array([[0],
-                                  [1],
-                                  [0],
-                                  [0.5]]))  # Initial guess close to model
+    model_state = x0
 
     # Store results for analysis
     model_positions = []
