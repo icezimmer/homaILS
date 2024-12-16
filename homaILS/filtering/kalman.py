@@ -1,98 +1,91 @@
 import numpy as np
 
 class KalmanFilter:
-    def __init__(self, F, H, Q, R, P, B=None):
+    def __init__(self, model):
         """
         Initialize the Kalman Filter.
 
         Parameters:
-        F : np.array
-            State transition matrix.
-        H : np.array
-            Observation matrix.
-        Q : np.array
-            Process noise covariance.
-        R : np.array
-            Measurement noise covariance.
-        P : np.array
-            Initial estimate error covariance.
-        B : np.array (optional)
-            Control-input model matrix.
+        model : object
+            The model object that contains the Kalman Filter matrices:
+            F, H, Q, R, and optionally B (control input matrix).
         """
-        self.F = F
-        self.H = H
-        self.Q = Q
-        self.R = R
-        self.P = P
-        self.B = B if B is not None else np.zeros((F.shape[0], 1))
-        
-        # State estimate will be set later
+        self.model = model
+
+        # State covariance and state estimate will be set later
+        self.P = None
         self.x = None
-
-    def initialize_state(self, x0):
-        """Set the initial state estimate."""
-        self.x = x0
-
-    def model_step(self, x, u=None):
+    
+    def initialize(self, x0, P0):
         """
-        Model step function of the Kalman Filter.
-        Compute the next state given the current state and control input,
-        without updating the state estimate.
-        
+        Set the initial state estimate and estimate error covariance.
+
         Parameters:
-        x : np.array
-            State vector.
-        u : np.array (optional)
-            Control input vector.
+        x0 : np.array
+            Initial state vector.
+        P0 : np.array
+            Initial covariance matrix. Must match the state vector size.
         """
-        if u is None:
-            u = np.zeros((self.B.shape[1], 1))
-        
-        # Predict the state
-        x = self.F @ x + self.B @ u
+        self.x = x0.reshape(-1, 1)
 
-        return x
+        if P0.shape[0] != P0.shape[1]:
+            raise ValueError("Covariance matrix P0 must be square.")
+        if P0.shape[0] != self.x.shape[0]:
+            raise ValueError("Covariance matrix P0 size must match state vector size.")
+        self.P = P0
 
     def predict(self, u=None):
         """
         Predict the next state and covariance.
-        
+
         Parameters:
         u : np.array (optional)
             Control input vector.
         """
         if self.x is None:
-            raise ValueError("State is not initialized. Use initialize_state() method.")
+            raise ValueError("State is not initialized. Use initialize() method.")
+
+        # Set the control input ndarray column vector
+        if u is not None:
+            u = u.reshape(-1, 1)
+        
+        # Get the model parameters
+        F, _, Q, _, _ = self.model.get_params()
                
         # Predict the state
-        self.x = self.model_step(self.x, u)
+        self.x = self.model.step(self.x, u)
         
         # Predict the error covariance
-        self.P = self.F @ self.P @ self.F.T + self.Q
+        self.P = F @ self.P @ F.T + Q
 
     def update(self, z):
         """
         Update the Kalman Filter with a new measurement z.
-        
+
         Parameters:
         z : np.array
             Measurement vector.
         """
-        if self.x is None:
+        if self.x is None or self.P is None:
             raise ValueError("State is not initialized. Use initialize_state() method.")
         
+        z = z.reshape(-1, 1)
+        
+        # Get the model parameters
+        _, H, _, R, _ = self.model.get_params()
+        
         # Compute the innovation (residual) y
-        y = z - self.H @ self.x
+        y = z - H @ self.x
         
         # Compute the innovation covariance S
-        S = self.H @ self.P @ self.H.T + self.R
+        S = H @ self.P @ H.T + R
         
         # Compute the Kalman gain K
-        K = self.P @ self.H.T @ np.linalg.inv(S)
+        K = self.P @ H.T @ np.linalg.inv(S)
         
         # Update the state estimate
         self.x = self.x + K @ y
         
         # Update the estimate covariance
         I = np.eye(self.P.shape[0])
-        self.P = (I - K @ self.H) @ self.P
+        self.P = (I - K @ H) @ self.P

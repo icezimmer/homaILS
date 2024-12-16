@@ -6,20 +6,22 @@ def main():
     # Parameters
     dt = 0.1    # time step
     q = 0.001   # process noise
-    r = 0.5     # measurement noise
+    r = 0.8     # measurement noise
     steps = 100
     step_update = 5
 
-    F, H, Q, R, P, B = UniformLinearMotion(dt=dt, q=q, r=r).get_params()
+    model = UniformLinearMotion(dt=dt, q=q, r=r)
     
     # Initialize the filter
-    kf = KalmanFilter(F=F, H=H, Q=Q, R=R, P=P, B=B)
+    kf = KalmanFilter(model)
     
-    # Initial state: Suppose we start at position = 0, velocity = 1 m/s
-    x0 = np.array([[0], [1], [0], [1]])
-    kf.initialize_state(x0)
+    # Initial state: Suppose we start at position = 0, velocity = 5 m/s
+    x0 = np.array([[0], [0], [2], [3]])
+    # Initial covariance matrix
+    P0 = np.eye(4)*0.1
+    kf.initialize(x0, P0)
 
-    # model initial state (x=0, vx=1 m/s, y=0, vy=0.5 m/s)
+    # model initial state equals the initial state
     model_state = x0
 
     # Store results for analysis
@@ -29,24 +31,20 @@ def main():
 
     for t in range(steps):
         # model state evolves
-        model_state = kf.model_step(model_state)
+        model_state = kf.model.step(model_state)
 
         # Measured position with noise
-        measured_x = model_state[0, 0] + np.random.normal(0, np.sqrt(r))
-        measured_y = model_state[2, 0] + np.random.normal(0, np.sqrt(r))
-        z = np.array([[measured_x],
-                      [measured_y]])
+        z = model_state[:2, 0] + np.random.normal(0, r, 2)
 
-        # Kalman prediction and update
         kf.predict()
-
+        # Update the Kalman Filter
         if t % step_update == 0:
             kf.update(z)
 
         # Logging for analysis
-        model_positions.append((model_state[0, 0], model_state[2, 0]))
-        measured_positions.append((measured_x, measured_y))
-        estimated_positions.append((kf.x[0,0], kf.x[2,0]))
+        model_positions.append(model_state[:2, 0])
+        measured_positions.append(z)
+        estimated_positions.append(kf.x[:2, 0])
 
     # Print results
     for i in range(steps):
