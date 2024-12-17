@@ -2,13 +2,24 @@ import numpy as np
 from homaILS.modeling.linear import UniformLinearMotion
 from homaILS.filtering.kalman import KalmanFilter
 
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser(description='Test the Kalman Filter with a Uniform Linear Motion model.')
+    parser.add_argument('--dt', type=float, required=True, help='Time step.')
+    parser.add_argument('--q', type=float, required=True, help='Process noise.')
+    parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
+    parser.add_argument('--steps', type=int, required=True, help='Number of steps to run the simulation.')
+    parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
+    return parser.parse_args()
+
 def main():
     # Parameters
-    dt = 0.1    # time step
-    q = 0.001   # process noise
-    r = 0.8     # measurement noise
-    steps = 100
-    step_update = 5
+    args = parse_args()
+    dt = args.dt
+    q = args.q
+    r = args.r
+    steps = args.steps
+    step_update = args.measures
 
     model = UniformLinearMotion(dt=dt, q=q, r=r)
     
@@ -30,27 +41,31 @@ def main():
     estimated_positions = []
 
     for t in range(steps):
-        # model state evolves
+        # Model state evolves
         model_state = kf.model.step(model_state)
 
-        # Measured position with noise
-        z = model_state[:2, 0] + np.random.normal(0, r, 2)
-
+        # Predict the next state
         kf.predict()
+
         # Update the Kalman Filter
         if t % step_update == 0:
+            # Measured position with noise
+            z = model_state[:2, 0] + np.random.normal(0, r, 2)
             kf.update(z)
+            measured_positions.append(z)
 
         # Logging for analysis
         model_positions.append(model_state[:2, 0])
-        measured_positions.append(z)
         estimated_positions.append(kf.x[:2, 0])
 
     # Print results
+    j = 0
     for i in range(steps):
         print(f"Step {i+1}:")
         print(f"  Model Position: x={model_positions[i][0]:.2f}, y={model_positions[i][1]:.2f}")
-        print(f"  Measured Pos:   x={measured_positions[i][0]:.2f}, y={measured_positions[i][1]:.2f}")
+        if i % step_update == 0:
+            print(f"  Measured Pos:   x={measured_positions[j][0]:.2f}, y={measured_positions[j][1]:.2f}")
+            j += 1
         print(f"  Estimated Pos:  x={estimated_positions[i][0]:.2f}, y={estimated_positions[i][1]:.2f}")
         print("------------------------------------------------")
 

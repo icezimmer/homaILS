@@ -34,7 +34,7 @@ class KalmanFilter:
             raise ValueError("Covariance matrix P0 size must match state vector size.")
         self.P = P0
 
-    def predict(self, u=None):
+    def predict(self, u=None, **dynamic_params):
         """
         Predict the next state and covariance.
 
@@ -50,7 +50,7 @@ class KalmanFilter:
             u = u.reshape(-1, 1)
         
         # Get the model parameters
-        F, _, Q, _, _ = self.model.get_params()
+        F, _, Q, _, _ = self.model.get_params(**dynamic_params)
                
         # Predict the state
         self.x = self.model.step(self.x, u)
@@ -58,7 +58,7 @@ class KalmanFilter:
         # Predict the error covariance
         self.P = F @ self.P @ F.T + Q
 
-    def update(self, z):
+    def update(self, z, **dynamic_params):
         """
         Update the Kalman Filter with a new measurement z.
 
@@ -72,7 +72,7 @@ class KalmanFilter:
         z = z.reshape(-1, 1)
         
         # Get the model parameters
-        _, H, _, R, _ = self.model.get_params()
+        _, H, _, R, _ = self.model.get_params(**dynamic_params)
         
         # Compute the innovation (residual) y
         y = z - H @ self.x
