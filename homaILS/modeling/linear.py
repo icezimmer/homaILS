@@ -9,7 +9,16 @@ class LinearModel:
         self.R = None
         self.B = None
 
-    def step(self, x, u=None):
+    def get_params(self, **dynamic_params):
+        """Return the parameters of the model for Kalman Filter."""
+        return self.F, self.H, self.Q, self.R, self.B
+    
+    @staticmethod
+    def compute_u(**sensor_data):
+        """Compute the control input vector."""
+        return None
+
+    def step(self, x, **sensor_data):
         """
         Compute the next state given the current state and control input,
         without updating the state estimate.
@@ -20,25 +29,23 @@ class LinearModel:
         u : np.array (optional)
             Control input vector.
         """
+        u = self.compute_u(**sensor_data)
         if u is None:
             return self.F @ x
         else:
             return self.F @ x + self.B @ u
-
-    def get_params(self, **dynamic_params):
-        """Return the parameters of the model for Kalman Filter."""
-        return self.F, self.H, self.Q, self.R, self.B
+        
 
 class UniformLinearMotion(LinearModel):
     def __init__(self, **static_params):
         """
         Initialize the Uniform Linear Motion model, with a costant velocity and zero acceleration in 2D-space.
-        The state is [x, y, vx, vy].
-        The observations are only the positions [x, y].
-        Input:
+        The static parameters are:
         - dt: the time step;
         - q: the process noise;
         - r: the measurement noise.
+        The state is [x, y, vx, vy].
+        The observations are only the positions [x, y].
         """
         dt = static_params.get('dt', 0.1)
         q = static_params.get('q', 0.001)
@@ -60,6 +67,10 @@ class UniformLinearMotionSpeedObs(LinearModel):
     def __init__(self, **static_params):
         """
         Initialize the Uniform Linear Motion model, with a costant velocity and zero acceleration in 2D-space.
+        The static parameters are:
+        - dt: the time step;
+        - q: the process noise;
+        - r: the measurement noise.
         The state is [x, y, vx, vy].
         The observations are the positions and velocities [x, y, vx, vy].
         Input:
@@ -86,7 +97,11 @@ class StepHeading(LinearModel):
     def __init__(self, **static_params):
         """
         Initialize the Step Heading model. The input has number of new steps and direction.
-        The step size is L.
+        The static parameters are:
+        - r: the measurement noise;
+        - L: the mean step length;
+        - dL: the standard deviation of the step length;
+        - dalpha: the standard deviation of the direction.
         The state is [x, y].
         The observations are [x, y].
         """
@@ -102,7 +117,7 @@ class StepHeading(LinearModel):
         self.Q = None
         self.R = np.eye(2)*r
         self.B = np.eye(2)*self.L
-        
+
     @staticmethod
     def compute_Q(L, dL, alpha, dalpha):
         # Set the new direction
@@ -134,4 +149,26 @@ class StepHeading(LinearModel):
 
         self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha)
         return self.F, self.H, self.Q, self.R, self.B
+    
+    @staticmethod
+    def compute_u(**sensor_data):
+        dk = sensor_data.get('dk', 0)
+        alpha = sensor_data.get('alpha', 0)
+        # Compute the control input vector
+        u = np.array([dk * np.cos(alpha), dk * np.sin(alpha)]).reshape(-1, 1)
+        return u
+
+    def step(self, x, **sensor_data):
+        """
+        Compute the next state given the current state and control input,
+        without updating the state estimate.
+
+        Parameters:
+        x : np.array
+            State vector.
+        u : np.array
+            Control input vector.
+        """
+        u = self.compute_u(**sensor_data)
+        return self.F @ x + self.B @ u
     

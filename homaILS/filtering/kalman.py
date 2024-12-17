@@ -34,7 +34,7 @@ class KalmanFilter:
             raise ValueError("Covariance matrix P0 size must match state vector size.")
         self.P = P0
 
-    def predict(self, u=None, **dynamic_params):
+    def predict(self, **dynamic_params):
         """
         Predict the next state and covariance.
 
@@ -44,16 +44,12 @@ class KalmanFilter:
         """
         if self.x is None:
             raise ValueError("State is not initialized. Use initialize() method.")
-
-        # Set the control input ndarray column vector
-        if u is not None:
-            u = u.reshape(-1, 1)
         
         # Get the model parameters
         F, _, Q, _, _ = self.model.get_params(**dynamic_params)
                
         # Predict the state
-        self.x = self.model.step(self.x, u)
+        self.x = self.model.step(self.x, **dynamic_params)
         
         # Predict the error covariance
         self.P = F @ self.P @ F.T + Q

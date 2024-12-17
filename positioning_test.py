@@ -5,6 +5,7 @@ from homaILS.filtering.kalman import KalmanFilter
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='Test the Kalman Filter with a Uniform Linear Motion model.')
+    parser.add_argument('--seed', type=int, default=0, help='Random seed.')
     parser.add_argument('--dt', type=float, required=True, help='Time step.')
     parser.add_argument('--q', type=float, required=True, help='Process noise.')
     parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
@@ -20,6 +21,9 @@ def main():
     r = args.r
     steps = args.steps
     step_update = args.measures
+
+    # Seed for reproducibility
+    np.random.seed(args.seed)
 
     model = UniformLinearMotion(dt=dt, q=q, r=r)
     
