@@ -9,7 +9,8 @@ def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='Test the Kalman Filter with a Uniform Linear Motion model.')
     parser.add_argument('--seed', type=int, default=0, help='Random seed.')
-    parser.add_argument('--dt', type=float, required=True, help='Time step.')
+    # parser.add_argument('--dt', type=float, required=True, help='Time step.')
+    parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
     parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
     return parser.parse_args()
 
@@ -34,38 +35,31 @@ def main():
     print("\nStep Data:")
     print(step_df)
 
-    # Merge the orientation and step data on the nearest timestamp, keeping the timestamp from the step data
-    df = pd.merge_asof(step_df, orientation_df, on='Timestamp', direction='nearest')
+    args = parse_args()
+
+    # Add column count equal to 1 in step data
+    step_df['Count'] = 1
+    # Take only the azimuth column from the orientation data
+    azimuth_df = orientation_df[['Timestamp', 'Azimuth']]
+    # Change the orientation to north
+    azimuth_df['Azimuth'] = np.pi/2 - azimuth_df['Azimuth']
+    # Merge the step and orientation data keeping all the information from both dataframes
+    df = pd.merge(step_df, azimuth_df, on='Timestamp', how='outer')
+    # Fill the NaN values in the azimuth column with the previous value
+    df['Azimuth'] = df['Azimuth'].ffill()
+    # Fill the NaN values in the Count column with 0
+    # df['Count'] = df['Count'].fillna(0)
+    # Drop where Count is NaN
+    df = df.dropna(subset=['Count'])
     print("\nStep Data and Orientation:")
     print(df)
 
-    args = parse_args()
-    dt = args.dt
-
-    # Compute the time differences
-    df['Time_diff'] = df['Timestamp'].diff()
-
-    # Create a group id that increments whenever a gap larger than dt is encountered
-    df['group_id'] = (df['Time_diff'] > dt * 1000).cumsum()
-
-    # Now group by this group_id and compute the mean azimuth and count
-    df = df.groupby('group_id').agg(
-        alpha=('Azimuth', 'mean'),
-        dk=('Azimuth', 'count')
-    ).reset_index()
-    print(df)
-
-    # Compute the number of rows in the step data
-    steps = len(df)
-    step_update = 10000
-
-    # Gropup the data by the delta time and compute the mean of the step lengths and alphas
+    # Compute the mean of the step lengths and alphas
     step_lengths = [104 / 164, 181 / 300, 111 / 176, 226 / 337, 62 / 100]
     # Mean and standard deviation of the step lengths
     L = sum(step_lengths) / len(step_lengths)
     dL = (sum([(l - L) ** 2 for l in step_lengths]) / len(step_lengths)) ** 0.5
-
-    alphas = orientation_df['Azimuth'].values
+    alphas = df['Azimuth'].values
     # Mean and standard deviation of the alphas
     alpha = alphas.mean()
     dalpha = alphas.std()
@@ -80,7 +74,7 @@ def main():
     # Initialize the filter
     kf = KalmanFilter(model)
     
-    # Initial state: Suppose we start at position = 0, velocity = 5 m/s
+    # Initial state: Suppose we start at position = (0, 0)
     x0 = np.array([[0], [0]])
     # Initial covariance matrix
     P0 = np.eye(x0.shape[0])*0.1
@@ -94,19 +88,20 @@ def main():
     measured_positions = []
     estimated_positions = []
 
+    steps = len(df)
+    step_update = args.measures
     for t in range(steps):
         # Model state evolves
         model_state = kf.model.step(model_state)
 
         # Predict the next state
-        a = alphas[t]
-        kf.predict(a)
+        kf.predict(alpha=alphas[t])
 
         # Update the Kalman Filter
         if t % step_update == 0:
             # Measured position with noise
             z = model_state[:2, 0] + np.random.normal(0, args.r, 2)
-            kf.update(z)
+            kf.update(z, alpha=alphas[t])
             measured_positions.append(z)
 
         # Logging for analysis
@@ -124,7 +119,7 @@ def main():
         print(f"  Estimated Pos:  x={estimated_positions[i][0]:.2f}, y={estimated_positions[i][1]:.2f}")
         print("------------------------------------------------")
 
-    # If desired, you can also plot the results using matplotlib:
+    # Plot the results using matplotlib:
     import matplotlib.pyplot as plt
     model_xs, model_ys = zip(*model_positions)
     meas_xs, meas_ys = zip(*measured_positions)

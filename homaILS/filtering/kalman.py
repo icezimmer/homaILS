@@ -4,11 +4,8 @@ class KalmanFilter:
     def __init__(self, model):
         """
         Initialize the Kalman Filter.
-
-        Parameters:
-        model : object
-            The model object that contains the Kalman Filter matrices:
-            F, H, Q, R, and optionally B (control input matrix).
+        - Inputs:
+            - model : object, The model object for the Kalman Filter.
         """
         self.model = model
 
@@ -19,12 +16,9 @@ class KalmanFilter:
     def initialize(self, x0, P0):
         """
         Set the initial state estimate and estimate error covariance.
-
-        Parameters:
-        x0 : np.array
-            Initial state vector.
-        P0 : np.array
-            Initial covariance matrix. Must match the state vector size.
+        - Inputs:
+            - x0 : np.array, Initial state vector.
+            - P0 : np.array, Initial covariance matrix. Must match the state vector size.
         """
         self.x = x0.reshape(-1, 1)
 
@@ -37,19 +31,15 @@ class KalmanFilter:
     def predict(self, **dynamic_params):
         """
         Predict the next state and covariance.
-
-        Parameters:
-        u : np.array (optional)
-            Control input vector.
         """
         if self.x is None:
             raise ValueError("State is not initialized. Use initialize() method.")
         
         # Get the model parameters
-        F, _, Q, _, _ = self.model.get_params(**dynamic_params)
+        F, _, Q, _, _, _ = self.model.get_params(**dynamic_params)
                
         # Predict the state
-        self.x = self.model.step(self.x, **dynamic_params)
+        self.x = self.model.step(self.x)
         
         # Predict the error covariance
         self.P = F @ self.P @ F.T + Q
@@ -57,10 +47,8 @@ class KalmanFilter:
     def update(self, z, **dynamic_params):
         """
         Update the Kalman Filter with a new measurement z.
-
-        Parameters:
-        z : np.array
-            Measurement vector.
+        - Inputs:
+            - z : np.array, Measurement vector.
         """
         if self.x is None or self.P is None:
             raise ValueError("State is not initialized. Use initialize_state() method.")
@@ -68,7 +56,7 @@ class KalmanFilter:
         z = z.reshape(-1, 1)
         
         # Get the model parameters
-        _, H, _, R, _ = self.model.get_params(**dynamic_params)
+        _, H, _, R, _, _ = self.model.get_params(**dynamic_params)
         
         # Compute the innovation (residual) y
         y = z - H @ self.x
