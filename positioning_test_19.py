@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 from homaILS.modeling.linear import StepHeading
 from homaILS.filtering.kalman import KalmanFilter
+from homaILS.plotting.static import plot_2D_localization
+from homaILS.plotting.dynamic import animate_2D_localization
+from homaILS.printing.results import print_2D_localization
 
 
 #TODO: repaire the code
@@ -87,6 +90,7 @@ def main():
     model_positions = []
     measured_positions = []
     estimated_positions = []
+    timestamps = df['Timestamp'].values
 
     steps = len(df)
     step_update = args.measures
@@ -103,38 +107,81 @@ def main():
             z = model_state[:2, 0] + np.random.normal(0, args.r, 2)
             kf.update(z, alpha=alphas[t])
             measured_positions.append(z)
+        else:
+            measured_positions.append(None)
 
         # Logging for analysis
         model_positions.append(model_state[:2, 0])
         estimated_positions.append(kf.x[:2, 0])
 
-    # Print results
-    j = 0
-    for i in range(steps):
-        print(f"Step {i+1}:")
-        print(f"  Model Position: x={model_positions[i][0]:.2f}, y={model_positions[i][1]:.2f}")
-        if i % step_update == 0:
-            print(f"  Measured Pos:   x={measured_positions[j][0]:.2f}, y={measured_positions[j][1]:.2f}")
-            j += 1
-        print(f"  Estimated Pos:  x={estimated_positions[i][0]:.2f}, y={estimated_positions[i][1]:.2f}")
-        print("------------------------------------------------")
+    # Example timestamps in milliseconds (simulating 12 measurements over time)
+    timestamps = [
+        1000000,
+        1001000,
+        1002000,
+        1003000,
+        1004000,
+        1005000,
+        1006000,
+        1007000,
+        1008000,
+        1022000,
+        1023000,
+        1024000,
+    ]
 
-    # Plot the results using matplotlib:
-    import matplotlib.pyplot as plt
-    model_xs, model_ys = zip(*model_positions)
-    meas_xs, meas_ys = zip(*measured_positions)
-    est_xs, est_ys = zip(*estimated_positions)
+    # Example model positions (simulated trajectory)
+    model_positions = [
+        (0, 0),
+        (1, 2),
+        (2, 4),
+        (3, 6),
+        (4, 8),
+        (5, 10),
+        (6, 12),
+        (7, 14),
+        (8, 16),
+        (9, 18),
+        (10, 20),
+        (11, 22),
+    ]
 
-    plt.figure(figsize=(10,5))
-    plt.plot(model_xs, model_ys, 'g-', label='Model Trajectory')
-    plt.plot(meas_xs, meas_ys, 'r.', label='Measurements')
-    plt.plot(est_xs, est_ys, 'b-', label='Kalman Estimates')
-    plt.xlabel('X Position')
-    plt.ylabel('Y Position')
-    plt.title('Uniform Linear Motion - Kalman Filter')
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    # Example measured positions (with some missing measurements represented as None)
+    measured_positions = [
+        (0.1, -0.1),
+        (1.2, 2.1),
+        None,
+        (3.0, 6.2),
+        (4.1, 8.1),
+        None,
+        (6.2, 12.1),
+        (7.3, 14.2),
+        None,
+        (9.4, 18.3),
+        (10.5, 20.4),
+        (11.6, 22.5),
+    ]
+
+    # Example estimated positions (Kalman filter output)
+    estimated_positions = [
+        (0, 0),
+        (1, 2),
+        (2, 4.1),
+        (3, 6),
+        (4, 8.2),
+        (5, 10.1),
+        (6, 12.1),
+        (7, 14),
+        (8, 16.2),
+        (9, 18.1),
+        (10, 20),
+        (11, 22.2),
+    ]
+
+    # print_2D_localization(model_positions, measured_positions, estimated_positions)
+    # plot_2D_localization(model_positions, measured_positions, estimated_positions)
+    animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps)
+
 
 
 if __name__ == "__main__":
