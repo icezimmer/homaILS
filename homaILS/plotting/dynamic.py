@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 
-def animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps):
+def animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps, interval=10):
     """
     Animate using a small, fixed interval in FuncAnimation, while tracking an 
     internal "cumulative clock" to decide which frame index to display at a given time.
@@ -13,6 +13,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
     :param measured_positions: List of (x, y) or None, length = N
     :param estimated_positions: List of (x, y) or None, length = N
     :param timestamps: List of strictly increasing times in ms, length = N
+    :param interval: Interval in ms between frames
     """
     # Basic validation
     N = len(timestamps)
@@ -101,10 +102,9 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
 
         return model_line, meas_points, est_line
 
-    # We'll call 'update' every 50 ms (20 times per second).
     # You can adjust 'interval' if you want more or less "smoothness" in the UI.
     ani = animation.FuncAnimation(
-        fig, update, interval=50, blit=False, repeat=False, save_count=total_frames
+        fig, update, interval=interval, blit=False, repeat=False, save_count=total_frames
     )
 
     # Show the plot
