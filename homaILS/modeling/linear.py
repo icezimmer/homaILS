@@ -310,14 +310,10 @@ class StepHeadingSpeed(LinearModel):
         self.dalpha = static_params['dalpha']
 
         # Set static parameters for kalman filter
-        self.F = np.array([[1, 0, 0, 0],
-                           [0, 1, 0, 0],
-                           [0, 0, 1, 0],
-                           [0, 0, 0, 1]])
-        self.H = np.array([[1, 0, 0, 0],
-                            [0, 1, 0, 0]])
+        self.F = np.eye(4)
+        self.H = np.eye(4)
         self.Q = None
-        self.R = np.eye(2)*r
+        self.R = np.eye(4)*r
         self.B = None
         self.u = None
 
@@ -380,3 +376,4 @@ class StepHeadingSpeed(LinearModel):
         self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha, dt)
         self.u = self.compute_u(alpha)
         return self.F, self.H, self.Q, self.R, self.B, self.u
+    
