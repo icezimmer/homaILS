@@ -55,45 +55,14 @@ def main():
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     print(df)
 
-    # # Function to fill NaN based on the nearest timestamp
-    # def fill_by_nearest_time(df_, col):
-    #     df = df_.copy()
-    #     # Take only if col is not NaN
-    #     df2 = df.dropna(subset=[col])
-    #     for i, row in df.iterrows():
-    #         if pd.isna(row[col]):  # If the value is NaN
-    #             # Compute absolute time differences
-    #             time_diffs = (df2['Timestamp'] - row['Timestamp']).abs()
-    #             closest_index = time_diffs.idxmin()  # Find the index of the nearest timestamp
-    #             df.at[i, col] = df.at[closest_index, col]  # Fill the NaN with the nearest value
-    #     return df
-
-    # df = fill_by_nearest_time(df, 'Latitude')
-    # df = fill_by_nearest_time(df, 'Longitude')
-    # df = fill_by_nearest_time(df, 'Altitude')
-    # df = fill_by_nearest_time(df, 'Speed')
-    # print(df)
-
-    # # Leave rows with no NaN in step
-    # df = df.dropna(subset=['Step'])
-    # # Reset index
-    # df = df.reset_index(drop=True)
-    # print(df)
-
     lat0_deg, lon0_deg, h0 = df['Latitude'][0], df['Longitude'][0], df['Altitude'][0]
     df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed']]
     print(df)
 
-    # # Compute the mean of the step lengths and alphas
-    # step_lengths = [104 / 164, 181 / 300, 111 / 176, 226 / 337, 62 / 100]
-    # # Mean and standard deviation of the step lengths
-    # L = sum(step_lengths) / len(step_lengths)
-    # dL = (sum([(l - L) ** 2 for l in step_lengths]) / len(step_lengths)) ** 0.5
-    # Avoid nan values
+    # Compute the mean of the step lengths and alphas
     L = df['Step'].dropna().values.mean()
     dL = df['Step'].dropna().values.std()
-    # Mean and standard deviation of the alphas
     alpha = df['Heading'].dropna().values.mean()
     dalpha = df['Heading'].dropna().values.std()
     print(f"\nStep Length mean (std): {L:.2f} ({dL:.2f})")
