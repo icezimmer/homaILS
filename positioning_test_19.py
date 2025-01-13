@@ -105,7 +105,7 @@ def main():
         if t % step_update == 0:
             # Measured position with noise
             z = model_state[:2, 0] + np.random.normal(0, args.r, 2)
-            kf.update(z, alpha=alphas[t])
+            kf.update(z)
             measured_positions.append(z)
         else:
             measured_positions.append(None)

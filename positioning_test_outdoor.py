@@ -15,7 +15,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test the Kalman Filter with a Uniform Linear Motion model.')
     parser.add_argument('--seed', type=int, default=0, help='Random seed.')
     # parser.add_argument('--dt', type=float, required=True, help='Time step.')
-    parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
+    # parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
     parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
     return parser.parse_args()
 
@@ -55,45 +55,47 @@ def main():
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     print(df)
 
-    # Function to fill NaN based on the nearest timestamp
-    def fill_by_nearest_time(df_, col):
-        df = df_.copy()
-        # Take only if col is not NaN
-        df2 = df.dropna(subset=[col])
-        for i, row in df.iterrows():
-            if pd.isna(row[col]):  # If the value is NaN
-                # Compute absolute time differences
-                time_diffs = (df2['Timestamp'] - row['Timestamp']).abs()
-                closest_index = time_diffs.idxmin()  # Find the index of the nearest timestamp
-                df.at[i, col] = df.at[closest_index, col]  # Fill the NaN with the nearest value
-        return df
+    # # Function to fill NaN based on the nearest timestamp
+    # def fill_by_nearest_time(df_, col):
+    #     df = df_.copy()
+    #     # Take only if col is not NaN
+    #     df2 = df.dropna(subset=[col])
+    #     for i, row in df.iterrows():
+    #         if pd.isna(row[col]):  # If the value is NaN
+    #             # Compute absolute time differences
+    #             time_diffs = (df2['Timestamp'] - row['Timestamp']).abs()
+    #             closest_index = time_diffs.idxmin()  # Find the index of the nearest timestamp
+    #             df.at[i, col] = df.at[closest_index, col]  # Fill the NaN with the nearest value
+    #     return df
 
-    df = fill_by_nearest_time(df, 'Latitude')
-    df = fill_by_nearest_time(df, 'Longitude')
-    df = fill_by_nearest_time(df, 'Altitude')
-    df = fill_by_nearest_time(df, 'Speed')
-    print(df)
+    # df = fill_by_nearest_time(df, 'Latitude')
+    # df = fill_by_nearest_time(df, 'Longitude')
+    # df = fill_by_nearest_time(df, 'Altitude')
+    # df = fill_by_nearest_time(df, 'Speed')
+    # print(df)
 
-    # Leave rows with no NaN in step
-    df = df.dropna(subset=['Step'])
-    # Reset index
-    df = df.reset_index(drop=True)
-    print(df)
+    # # Leave rows with no NaN in step
+    # df = df.dropna(subset=['Step'])
+    # # Reset index
+    # df = df.reset_index(drop=True)
+    # print(df)
 
     lat0_deg, lon0_deg, h0 = df['Latitude'][0], df['Longitude'][0], df['Altitude'][0]
     df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed']]
     print(df)
 
-    # Compute the mean of the step lengths and alphas
-    step_lengths = [104 / 164, 181 / 300, 111 / 176, 226 / 337, 62 / 100]
-    # Mean and standard deviation of the step lengths
-    L = sum(step_lengths) / len(step_lengths)
-    dL = (sum([(l - L) ** 2 for l in step_lengths]) / len(step_lengths)) ** 0.5
-    alphas = df['Heading'].values
+    # # Compute the mean of the step lengths and alphas
+    # step_lengths = [104 / 164, 181 / 300, 111 / 176, 226 / 337, 62 / 100]
+    # # Mean and standard deviation of the step lengths
+    # L = sum(step_lengths) / len(step_lengths)
+    # dL = (sum([(l - L) ** 2 for l in step_lengths]) / len(step_lengths)) ** 0.5
+    # Avoid nan values
+    L = df['Step'].dropna().values.mean()
+    dL = df['Step'].dropna().values.std()
     # Mean and standard deviation of the alphas
-    alpha = alphas.mean()
-    dalpha = alphas.std()
+    alpha = df['Heading'].dropna().values.mean()
+    dalpha = df['Heading'].dropna().values.std()
     print(f"\nStep Length mean (std): {L:.2f} ({dL:.2f})")
     print(f"Alpha mean (std): {alpha:.2f} ({dalpha:.2f})")
 
@@ -120,31 +122,45 @@ def main():
     estimated_positions = []
     timestamps = df['Timestamp'].values
 
-    steps = len(df)
-    step_update = args.measures
-    for t in range(steps):
-        # Model state evolves
-        model_state = kf.model.step(model_state)
+    for _, row in df.iterrows():
+        # pause = input("Press Enter to continue...")
 
-        # Predict the next state
-        kf.predict(alpha=alphas[t])
+        # STEP
+        if not pd.isna(row[['Step', 'Heading']]).any():
+            model_state = kf.model.step(model_state)
+            kf.predict(alpha=row['Heading'])
 
-        # Update the Kalman Filter
-        if t % step_update == 0:
-            # Measured position with noise
-            z = df[['E', 'N']].values[t].reshape(-1, 1)
-            kf.update(z, alpha=alphas[t])
-            measured_positions.append(z)
+            # GPS (measurament)
+            if not pd.isna(row[['E', 'N']]).any():
+                z = np.array([[row['E']], [row['N']]])
+                kf.update(z)
+                model_positions.append(model_state[:2, 0])
+                estimated_positions.append(kf.x[:2, 0])
+                measured_positions.append(z)
+
+            # NO GPS
+            else:
+                model_positions.append(model_state[:2, 0])
+                estimated_positions.append(kf.x[:2, 0])
+                measured_positions.append(None)
+
+        # NO STEP
         else:
-            measured_positions.append(None)
+            # GPS (measurament)
+            if not pd.isna(row[['E', 'N']]).any():
+                z = np.array([[row['E']], [row['N']]])
+                kf.update(z)
+                model_positions.append(None)
+                estimated_positions.append(kf.x[:2, 0])
+                measured_positions.append(z)
 
-        # Logging for analysis
-        model_positions.append(model_state[:2, 0])
-        estimated_positions.append(kf.x[:2, 0])
+            # NO GPS
+            else:
+                measured_positions.append(None)
+                model_positions.append(None)
+                estimated_positions.append(None)
 
-    # print_2D_localization(model_positions, measured_positions, estimated_positions)
-    # plot_2D_localization(model_positions, measured_positions, estimated_positions)
-    animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps)
+    animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps, min_x=-1000, max_x=1000, min_y=-1000, max_y=1000)
 
 
 

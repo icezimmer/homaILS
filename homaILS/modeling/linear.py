@@ -32,9 +32,10 @@ class LinearModel:
             - x : np.array (State vector).
         """
         if self.u is None:
-            return self.F @ x
+            x = self.F @ x
         else:
-            return self.F @ x + self.B @ self.u
+            x = self.F @ x + self.B @ self.u
+        return x
         
 
 class UniformLinearMotion(LinearModel):

@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 
-def animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps, interval=10):
+def animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps,
+                            interval=10, min_x=-100, max_x=100, min_y=-100, max_y=100): 
     """
     Animate using a small, fixed interval in FuncAnimation, while tracking an 
     internal "cumulative clock" to decide which frame index to display at a given time.
@@ -29,20 +30,12 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
     ax.set_ylabel("Y Position")
     ax.grid(True)
 
-    # Determine axis limits (simple example)
-    # Filter out None from model_positions to compute limits
-    valid_models = [mp for mp in model_positions if mp is not None]
-    min_x = min(x for x, y in valid_models)
-    max_x = max(x for x, y in valid_models)
-    min_y = min(y for x, y in valid_models)
-    max_y = max(y for x, y in valid_models)
-
     ax.set_xlim(min_x - 1, max_x + 1)
     ax.set_ylim(min_y - 1, max_y + 1)
 
-    model_line, = ax.plot([], [], 'g.', label="Model")
+    model_points, = ax.plot([], [], 'g.', label="Model")
     meas_points, = ax.plot([], [], 'r.', label="Measurements")
-    est_line, = ax.plot([], [], 'b.', label="Estimates")
+    est_points, = ax.plot([], [], 'b.', label="Estimates")
     ax.legend()
 
     # We'll track how far we've progressed in the data
@@ -83,7 +76,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
         # Update model trajectory
         if m_slice:
             xs, ys = zip(*m_slice)
-            model_line.set_data(xs, ys)
+            model_points.set_data(xs, ys)
 
         # Update measurements
         if z_slice:
@@ -93,14 +86,14 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
         # Update estimates
         if e_slice:
             xe, ye = zip(*e_slice)
-            est_line.set_data(xe, ye)
+            est_points.set_data(xe, ye)
 
         # If we're at the last frame, we can choose to keep going or do something special
         if current_index >= total_frames - 1:
             # E.g., you could stop the animation or just let it run
             pass
 
-        return model_line, meas_points, est_line
+        return model_points, meas_points, est_points
 
     # You can adjust 'interval' if you want more or less "smoothness" in the UI.
     ani = animation.FuncAnimation(
