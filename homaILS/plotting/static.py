@@ -20,9 +20,9 @@ def plot_2D_localization(model_positions, measured_positions, estimated_position
     est_xs, est_ys = zip(*estimated_positions)
 
     plt.figure(figsize=(10,5))
-    plt.plot(model_xs, model_ys, 'g-', label='Model Trajectory')
+    plt.plot(model_xs, model_ys, 'g.', label='Model Trajectory')
     plt.plot(meas_xs, meas_ys, 'r.', label='Measurements')
-    plt.plot(est_xs, est_ys, 'b-', label='Kalman Estimates')
+    plt.plot(est_xs, est_ys, 'b.', label='Kalman Estimates')
     plt.xlabel('X Position')
     plt.ylabel('Y Position')
     plt.title('2D Localization - Kalman Filter')

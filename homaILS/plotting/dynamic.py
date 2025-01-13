@@ -23,7 +23,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
 
     # --- Set up the figure and axes ---
     fig, ax = plt.subplots(figsize=(8, 4))
-    ax.set_title("Cumulative Timer Animation")
+    ax.set_title("2D Localization - Kalman Filter")
     ax.set_xlabel("X Position")
     ax.set_ylabel("Y Position")
     ax.grid(True)
@@ -39,9 +39,9 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
     ax.set_xlim(min_x - 1, max_x + 1)
     ax.set_ylim(min_y - 1, max_y + 1)
 
-    model_line, = ax.plot([], [], 'g-', label="Model")
+    model_line, = ax.plot([], [], 'g.', label="Model")
     meas_points, = ax.plot([], [], 'r.', label="Measurements")
-    est_line, = ax.plot([], [], 'b-', label="Estimates")
+    est_line, = ax.plot([], [], 'b.', label="Estimates")
     ax.legend()
 
     # We'll track how far we've progressed in the data
@@ -104,7 +104,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
     # We'll call 'update' every 50 ms (20 times per second).
     # You can adjust 'interval' if you want more or less "smoothness" in the UI.
     ani = animation.FuncAnimation(
-        fig, update, interval=50, blit=False, repeat=False
+        fig, update, interval=50, blit=False, repeat=False, save_count=total_frames
     )
 
     # Show the plot
