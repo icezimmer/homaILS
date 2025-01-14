@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import time
 
-def animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps,
+def animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps,
                             interval=10, min_x=-100, max_x=100, min_y=-100, max_y=100): 
     """
     Animate using a small, fixed interval in FuncAnimation, while tracking an 
@@ -11,20 +11,20 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
     This respects your real timestamps without needing 'start_event_loop' or draw events.
 
     :param model_positions: List of (x, y) or None, length = N
-    :param measured_positions: List of (x, y) or None, length = N
+    :param observed_positions: List of (x, y) or None, length = N
     :param estimated_positions: List of (x, y) or None, length = N
     :param timestamps: List of strictly increasing times in ms, length = N
     :param interval: Interval in ms between frames
     """
     # Basic validation
     N = len(timestamps)
-    if not (len(model_positions) == len(measured_positions) == len(estimated_positions) == N):
+    if not (len(model_positions) == len(observed_positions) == len(estimated_positions) == N):
         raise ValueError("All input lists must have the same length.")
     if any(timestamps[i] >= timestamps[i + 1] for i in range(N - 1)):
         raise ValueError("Timestamps must be strictly increasing.")
 
     # --- Set up the figure and axes ---
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(9, 9))
     ax.set_title("2D Localization - Kalman Filter")
     ax.set_xlabel("X Position")
     ax.set_ylabel("Y Position")
@@ -34,7 +34,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
     ax.set_ylim(min_y - 1, max_y + 1)
 
     model_points, = ax.plot([], [], 'g.', label="Model")
-    meas_points, = ax.plot([], [], 'r.', label="Measurements")
+    meas_points, = ax.plot([], [], 'r.', label="Observations")
     est_points, = ax.plot([], [], 'b.', label="Estimates")
     ax.legend()
 
@@ -70,7 +70,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
         # Now 'current_index' is where we should be in the data at this moment.
         # Slice data up to current_index
         m_slice = [mp for mp in model_positions[:current_index + 1] if mp is not None]
-        z_slice = [mp for mp in measured_positions[:current_index + 1] if mp is not None]
+        z_slice = [mp for mp in observed_positions[:current_index + 1] if mp is not None]
         e_slice = [mp for mp in estimated_positions[:current_index + 1] if mp is not None]
 
         # Update model trajectory
@@ -78,7 +78,7 @@ def animate_2D_localization(model_positions, measured_positions, estimated_posit
             xs, ys = zip(*m_slice)
             model_points.set_data(xs, ys)
 
-        # Update measurements
+        # Update observetions
         if z_slice:
             xm, ym = zip(*z_slice)
             meas_points.set_data(xm, ym)

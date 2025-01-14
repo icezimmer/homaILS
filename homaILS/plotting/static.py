@@ -2,26 +2,26 @@
 import matplotlib.pyplot as plt
 
 
-def plot_2D_localization(model_positions, measured_positions, estimated_positions):
+def plot_2D_localization(model_positions, observed_positions, estimated_positions):
     """
     Plot the 2D localization results using matplotlib.
     """
     # Check if the lengths of the lists are the same
-    if not (len(model_positions) == len(measured_positions) == len(estimated_positions)):
+    if not (len(model_positions) == len(observed_positions) == len(estimated_positions)):
         raise ValueError("Lengths of the input lists are not the same")
 
     # Remove None values
     model_positions = [m for m in model_positions if m is not None]
     estimated_positions = [m for m in estimated_positions if m is not None]
-    measured_positions = [m for m in measured_positions if m is not None]
+    observed_positions = [m for m in observed_positions if m is not None]
 
     model_xs, model_ys = zip(*model_positions)
-    meas_xs, meas_ys = zip(*measured_positions)
+    meas_xs, meas_ys = zip(*observed_positions)
     est_xs, est_ys = zip(*estimated_positions)
 
-    plt.figure(figsize=(10,5))
+    plt.figure(figsize=(9,9))
     plt.plot(model_xs, model_ys, 'g.', label='Model Trajectory')
-    plt.plot(meas_xs, meas_ys, 'r.', label='Measurements')
+    plt.plot(meas_xs, meas_ys, 'r.', label='Observations')
     plt.plot(est_xs, est_ys, 'b.', label='Kalman Estimates')
     plt.xlabel('X Position')
     plt.ylabel('Y Position')
