@@ -32,13 +32,13 @@ class KalmanFilter:
         """
         Predict the next state and covariance.
         - Inputs:
-            - dynamic_params : dict, Dynamic parameters for the model. Must match the model's get_params() method.
+            - dynamic_params : dict, Dynamic parameters for the state model. Must match the model's get_state_model() method.
         """
         if self.x is None:
             raise ValueError("State is not initialized. Use initialize() method.")
         
-        # Get the model parameters updated with dynamic parameters
-        F, _, Q, _, _, _ = self.model.get_params(**dynamic_params)
+        # Get the state model parameters updated with dynamic parameters
+        F, _, _, Q = self.model.get_state_model(**dynamic_params)
                
         # Predict the state
         self.x = self.model.step(self.x)
@@ -46,20 +46,20 @@ class KalmanFilter:
         # Predict the error covariance
         self.P = F @ self.P @ F.T + Q
 
-    def update(self, z):
+    def update(self, z, **dynamic_params):
         """
-        Update the Kalman Filter with a new measurement z.
+        Update the Kalman Filter with a new observation z.
         - Inputs:
             - z : np.array, Measurement vector.
+            - dynamic_params : dict, Dynamic parameters for the observation model. Must match the model's get_observation_model() method.
         """
         if self.x is None or self.P is None:
             raise ValueError("State is not initialized. Use initialize_state() method.")
         
         z = z.reshape(-1, 1)
         
-        # # Get the model parameters
-        H = self.model.H
-        R = self.model.R
+        # Get the observation model parameters
+        H, R = self.model.get_observation_model(**dynamic_params)
         
         # Compute the innovation (residual) y
         y = z - H @ self.x

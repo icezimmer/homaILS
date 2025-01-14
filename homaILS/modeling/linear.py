@@ -5,31 +5,49 @@ class LinearModel:
     def __init__(self, **static_params):
         """
         Initialize the Linear Model.
-        x_{k+1} = F*x_k + B*u_k + w_k
-        z_{k+1} = H*x_{k+1} + v_k.
+        x_k = F*x_k + B*u_{k-1} + w_k
+        z_k = H*x_k + v_k.
         """
         # Force the user to provide the static parameters
+
+        # State model parameters
         self.F = None
-        self.H = None
-        self.Q = None
-        self.R = None
         self.B = None
         self.u = None
+        self.Q = None
 
-    def get_params(self, **dynamic_params):
+        # Observation model parameters
+        self.H = None
+        self.R = None
+
+    def get_state_model(self, **dynamic_params):
         """
-        Return the parameters of the model for Kalman Filter.
+        Return the state model for Kalman Filter.
+        Input:
+            - dynamic_params : dict, Dynamic parameters for the model.
+        Return:
+            - F, B, u, Q : np.array, np.array, np.array, np.array.
         """
-        # Force the user to provide the dynamic parameters
-        return self.F, self.H, self.Q, self.R, self.B, self.u
+        return self.F, self.B, self.u, self.Q
+
+    def get_observation_model(self, **dynamic_params):
+        """
+        Return the observation model for Kalman Filter.
+        - Input:
+            - dynamic_params : dict, Dynamic parameters for the model.
+        - Return:
+            - H, R : np.array, np.array.
+        """
+        return self.H, self.R
 
     def step(self, x):
         """
         Compute the next state given the current state and control input,
         without updating the state estimate.
-
         - Input:
             - x : np.array (State vector).
+        - Return:
+            - x : np.array (Next state vector).
         """
         if self.u is None:
             x = self.F @ x
@@ -45,7 +63,7 @@ class UniformLinearMotion(LinearModel):
         - The static parameters are:
             - dt: the time step;
             - q: the process noise;
-            - r: the measurement noise.
+            - r: the observation noise.
         - The state is [x, y, vx, vy].
         - The observations are only the positions [x, y].
         """
@@ -55,23 +73,25 @@ class UniformLinearMotion(LinearModel):
         if 'q' not in static_params:
             raise ValueError("The process noise 'q' must be provided.")
         if 'r' not in static_params:
-            raise ValueError("The measurement noise 'r' must be provided.")
+            raise ValueError("The observation noise 'r' must be provided.")
         # Take the static parameters
         dt = static_params['dt']
         q = static_params['q']
         r = static_params['r']
 
-        # Set parameters for kalman filter
+        # State model parameters
         self.F = np.array([[1, 0, dt, 0],
                            [0, 1, 0, dt],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]])
-        self.H = np.array([[1, 0, 0, 0],
-                           [0, 1, 0, 0]])
-        self.Q = np.eye(4)*q
-        self.R = np.eye(2)*r
         self.B = np.zeros((4, 2))
         self.u = None
+        self.Q = np.eye(4)*q
+
+        # Observation model parameters
+        self.H = np.array([[1, 0, 0, 0],
+                           [0, 1, 0, 0]])
+        self.R = np.eye(2)*r
 
 
 class UniformLinearMotionSpeedObs(LinearModel):
@@ -81,7 +101,7 @@ class UniformLinearMotionSpeedObs(LinearModel):
         - The static parameters are:
             - dt: the time step;
             - q: the process noise;
-            - r: the measurement noise.
+            - r: the observation noise.
         - The state is [x, y, vx, vy].
         - The observations are the positions and velocities [x, y, vx, vy].
         """
@@ -91,22 +111,24 @@ class UniformLinearMotionSpeedObs(LinearModel):
         if 'q' not in static_params:
             raise ValueError("The process noise 'q' must be provided.")
         if 'r' not in static_params:
-            raise ValueError("The measurement noise 'r' must be provided.")
+            raise ValueError("The observation noise 'r' must be provided.")
         # Take the static parameters
         dt = static_params['dt']
         q = static_params['q']
         r = static_params['r']
 
-        # Set parameters for kalman filter
+        # State model parameters
         self.F = np.array([[1, 0, dt, 0],
                            [0, 1, 0, dt],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]])
-        self.H = np.eye(4)
-        self.Q = np.eye(4)*q
-        self.R = np.eye(4)*r
         self.B = np.zeros((4, 2))
         self.u = None
+        self.Q = np.eye(4)*q
+
+        # Observation model parameters
+        self.H = np.eye(4)
+        self.R = np.eye(4)*r
     
 
 class StepCountHeading(LinearModel):
@@ -114,7 +136,7 @@ class StepCountHeading(LinearModel):
         """
         Initialize the Step Heading model.
         - The static parameters are:
-            - r: the measurement noise;
+            - r: the observation noise;
             - L: the mean step length;
             - dL: the standard deviation of the step length;
             - dalpha: the standard deviation of the direction.
@@ -126,7 +148,7 @@ class StepCountHeading(LinearModel):
         """
         # Force the user to provide the static parameters
         if 'r' not in static_params:
-            raise ValueError("The measurement noise 'r' must be provided.")
+            raise ValueError("The observation noise 'r' must be provided.")
         if 'L' not in static_params:
             raise ValueError("The mean step length 'L' must be provided.")
         if 'dL' not in static_params:
@@ -139,15 +161,23 @@ class StepCountHeading(LinearModel):
         self.dL = static_params['dL']
         self.dalpha = static_params['dalpha']
 
-        # Set parameters for kalman filter
+        # State model parameters
         self.F = np.array([[1, 0],
                            [0, 1]])
-        self.H = np.eye(2)
-        self.Q = None
-        self.R = np.eye(2)*r
         self.B = np.eye(2)*self.L
         self.u = None
+        self.Q = None
 
+        # Observation model parameters
+        self.H = np.eye(2)
+        self.R = np.eye(2)*r
+    
+    @staticmethod
+    def compute_u(num_steps, alpha):
+        # Compute the control input vector
+        u = np.array([num_steps * np.cos(alpha), num_steps * np.sin(alpha)]).reshape(-1, 1)
+        return u
+    
     @staticmethod
     def compute_Q(L, dL, alpha, dalpha):
 
@@ -174,15 +204,13 @@ class StepCountHeading(LinearModel):
 
         return Q
     
-    @staticmethod
-    def compute_u(num_steps, alpha):
-        # Compute the control input vector
-        u = np.array([num_steps * np.cos(alpha), num_steps * np.sin(alpha)]).reshape(-1, 1)
-        return u
-    
-    def get_params(self, **dynamic_params):
+    def get_state_model(self, **dynamic_params):
         """
-        Return the parameters of the Step Heading model for Kalman Filter.
+        Return the parameters of the Step Heading state model for Kalman Filter.
+        - Inputs:
+            - dynamic_params : dict, Dynamic parameters for the state model.
+        - Return:
+            - F, B, u, Q : np.array, np.array, np.array, np.array.
         """
         # Force the user to provide the dynamic parameters
         if 'num_steps' not in dynamic_params:
@@ -193,9 +221,9 @@ class StepCountHeading(LinearModel):
         num_steps = dynamic_params['num_steps']
         alpha = dynamic_params['alpha']
 
-        self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha)
         self.u = self.compute_u(num_steps, alpha)
-        return self.F, self.H, self.Q, self.R, self.B, self.u
+        self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha)
+        return self.F, self.B, self.u, self.Q
 
 
 class StepHeading(LinearModel):
@@ -203,7 +231,6 @@ class StepHeading(LinearModel):
         """
         Initialize the Step Heading model.
         - The static parameters are:
-            - r: the measurement noise;
             - L: the mean step length;
             - dL: the standard deviation of the step length;
             - dalpha: the standard deviation of the direction.
@@ -213,32 +240,35 @@ class StepHeading(LinearModel):
         - The observations are [x, y].
         """
         # Force the user to provide the static parameters
-        if 'r' not in static_params:
-            raise ValueError("The measurement noise 'r' must be provided.")
         if 'L' not in static_params:
             raise ValueError("The mean step length 'L' must be provided.")
         if 'dL' not in static_params:
             raise ValueError("The standard deviation of the step length 'dL' must be provided.")
         if 'dalpha' not in static_params:
             raise ValueError("The standard deviation of the direction 'dalpha' must be provided.")
-        # Take the static parameters
-        r = static_params['r']
         self.L = static_params['L']
         self.dL = static_params['dL']
         self.dalpha = static_params['dalpha']
 
-        # Set parameters for kalman filter
+        # State model parameters
         self.F = np.array([[1, 0],
                            [0, 1]])
-        self.H = np.eye(2)
-        self.Q = None
-        self.R = np.eye(2)*r
         self.B = np.eye(2)*self.L
         self.u = None
+        self.Q = None
 
+        # Observation model parameters
+        self.H = np.eye(2)
+        self.R = None
+    
+    @staticmethod
+    def compute_u(alpha):
+        # Compute the control input vector
+        u = np.array([np.cos(alpha), np.sin(alpha)]).reshape(-1, 1)
+        return u
+    
     @staticmethod
     def compute_Q(L, dL, alpha, dalpha):
-
         # Compute dx and dy
         dx = (L + dL) - (L - dL) * np.cos(dalpha)
         dy = 2 * (L + dL) * np.sin(dalpha)
@@ -262,23 +292,43 @@ class StepHeading(LinearModel):
 
         return Q
     
-    @staticmethod
-    def compute_u(alpha):
-        # Compute the control input vector
-        u = np.array([np.cos(alpha), np.sin(alpha)]).reshape(-1, 1)
-        return u
-    
-    def get_params(self, **dynamic_params):
+    def get_state_model(self, **dynamic_params):
         """
-        Return the parameters of the Step Heading model for Kalman Filter.
+        Return the parameters of the Step Heading state model for Kalman Filter.
+        - Inputs:
+            - dynamic_params : dict, Dynamic parameters for the state model.
+        - Return:
+            - F, B, u, Q : np.array, np.array, np.array, np.array.
         """
         # Force the user to provide the dynamic parameters
         if 'alpha' not in dynamic_params:
             raise ValueError("The direction 'alpha' must be provided.")
         alpha = dynamic_params['alpha']
-        self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha)
+
         self.u = self.compute_u(alpha)
-        return self.F, self.H, self.Q, self.R, self.B, self.u
+        self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha)
+        return self.F, self.B, self.u, self.Q
+    
+    @staticmethod
+    def compute_R(r):
+        R = np.eye(2)*(r**2)
+        return R
+
+    def get_observation_model(self, **dynamic_params):
+        """
+        Return the parameters of the Step Heading observation model for Kalman Filter.
+        - Inputs:
+            - dynamic_params : dict, Dynamic parameters for the observation model.
+        - Return:
+            - H, R : np.array, np.array.
+        """
+        # Force the user to provide the dynamic parameters
+        if 'r' not in dynamic_params:
+            raise ValueError("The observation noise 'r' must be provided.")
+        r = dynamic_params['r']
+
+        self.R = self.compute_R(r)
+        return self.H, self.R
     
 
 class StepHeadingSpeed(LinearModel):
@@ -286,7 +336,7 @@ class StepHeadingSpeed(LinearModel):
         """
         Initialize the Step Heading model.
         - The static parameters are:
-            - r: the measurement noise;
+            - r: the observation noise;
             - L: the mean step length;
             - dL: the standard deviation of the step length;
             - dalpha: the standard deviation of the direction.
@@ -297,7 +347,7 @@ class StepHeadingSpeed(LinearModel):
         """
         # Force the user to provide the static parameters
         if 'r' not in static_params:
-            raise ValueError("The measurement noise 'r' must be provided.")
+            raise ValueError("The observation noise 'r' must be provided.")
         if 'L' not in static_params:
             raise ValueError("The mean step length 'L' must be provided.")
         if 'dL' not in static_params:
