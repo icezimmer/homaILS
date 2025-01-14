@@ -13,7 +13,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Test the Kalman Filter with a Uniform Linear Motion model.')
     parser.add_argument('--seed', type=int, default=0, help='Random seed.')
     # parser.add_argument('--dt', type=float, required=True, help='Time step.')
-    parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
+    parser.add_argument('--obs', type=int, required=True, help='Number of steps between observations.')
     parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
     return parser.parse_args()
 
@@ -72,7 +72,7 @@ def main():
      # Seed for reproducibility
     np.random.seed(args.seed)
 
-    model = StepHeading(r=args.r, L=L, dL=dL, dalpha=dalpha)
+    model = StepHeading(L=L, dL=dL, dalpha=dalpha)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -88,12 +88,12 @@ def main():
 
     # Store results for analysis
     model_positions = []
-    measured_positions = []
+    observed_positions = []
     estimated_positions = []
     timestamps = df['Timestamp'].values
 
     steps = len(df)
-    step_update = args.measures
+    step_update = args.obs
     for t in range(steps):
         # Model state evolves
         model_state = kf.model.step(model_state)
@@ -105,18 +105,18 @@ def main():
         if t % step_update == 0:
             # Measured position with noise
             z = model_state[:2, 0] + np.random.normal(0, args.r, 2)
-            kf.update(z)
-            measured_positions.append(z)
+            kf.update(z, r=args.r)
+            observed_positions.append(z)
         else:
-            measured_positions.append(None)
+            observed_positions.append(None)
 
         # Logging for analysis
         model_positions.append(model_state[:2, 0])
         estimated_positions.append(kf.x[:2, 0])
 
-    # print_2D_localization(model_positions, measured_positions, estimated_positions)
-    # plot_2D_localization(model_positions, measured_positions, estimated_positions)
-    animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps)
+    # print_2D_localization(model_positions, observed_positions, estimated_positions)
+    # plot_2D_localization(model_positions, observed_positions, estimated_positions)
+    animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps)
 
 
 

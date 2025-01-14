@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument('--q', type=float, required=True, help='Process noise.')
     parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
     parser.add_argument('--steps', type=int, required=True, help='Number of steps to run the simulation.')
-    parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
+    parser.add_argument('--obs', type=int, required=True, help='Number of steps between observations.')
     return parser.parse_args()
 
 def main():
@@ -22,7 +22,7 @@ def main():
     q = args.q
     r = args.r
     steps = args.steps
-    step_update = args.measures
+    step_update = args.obs
 
     # Seed for reproducibility
     np.random.seed(args.seed)
@@ -43,7 +43,7 @@ def main():
 
     # Store results for analysis
     model_positions = []
-    measured_positions = []
+    observed_positions = []
     estimated_positions = []
 
     for t in range(steps):
@@ -58,16 +58,16 @@ def main():
             # Measured position with noise
             z = model_state[:2, 0] + np.random.normal(0, r, 2)
             kf.update(z)
-            measured_positions.append(z)
+            observed_positions.append(z)
         else:
-            measured_positions.append(None)
+            observed_positions.append(None)
 
         # Logging for analysis
         model_positions.append(model_state[:2, 0])
         estimated_positions.append(kf.x[:2, 0])
 
-    print_2D_localization(model_positions, measured_positions, estimated_positions)
-    plot_2D_localization(model_positions, measured_positions, estimated_positions)
+    print_2D_localization(model_positions, observed_positions, estimated_positions)
+    plot_2D_localization(model_positions, observed_positions, estimated_positions)
 
 if __name__ == "__main__":
     main()

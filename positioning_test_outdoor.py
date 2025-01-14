@@ -9,17 +9,6 @@ from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
 from homaILS.processing.geographic import geodetic_to_enu
 
 
-#TODO: repaire the code
-def parse_args():
-    import argparse
-    parser = argparse.ArgumentParser(description='Test the Kalman Filter with a Uniform Linear Motion model.')
-    parser.add_argument('--seed', type=int, default=0, help='Random seed.')
-    # parser.add_argument('--dt', type=float, required=True, help='Time step.')
-    # parser.add_argument('--measures', type=int, required=True, help='Number of steps between measurements.')
-    parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
-    return parser.parse_args()
-
-#TODO: Implement the main function
 def main():
     # Load PDR dataset
     pdr_dataset = load_pdr_dataset()
@@ -29,8 +18,6 @@ def main():
 
     print(pdr_dataset)
     print(gps_dataset)
-
-    args = parse_args()
 
     pdr_df = pdr_dataset[['Timestamp', 'Step', 'Heading']]
     pdr_df = pdr_df.dropna()
@@ -42,7 +29,7 @@ def main():
     pdr_df['Heading'] = np.pi/2 - pdr_df['Heading']
     print(pdr_df)
 
-    gps_df = gps_dataset[['Timestamp', 'Latitude', 'Longitude', 'Altitude', 'Speed']]
+    gps_df = gps_dataset[['Timestamp', 'Latitude', 'Longitude', 'Altitude', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
     gps_df = gps_df.dropna()
     print(gps_df)
     # from string to float
@@ -50,6 +37,9 @@ def main():
     gps_df['Longitude'] = gps_df['Longitude'].str.replace(',', '.').astype(float)
     gps_df['Altitude'] = gps_df['Altitude'].str.replace(',', '.').astype(float)
     gps_df['Speed'] = gps_df['Speed'].str.replace(',', '.').astype(float)
+    gps_df['HorizontalAccuracy'] = gps_df['HorizontalAccuracy'].str.replace(',', '.').astype(float)
+    gps_df['VerticalAccuracy'] = gps_df['VerticalAccuracy'].str.replace(',', '.').astype(float)
+    gps_df['SpeedAccuracy'] = gps_df['SpeedAccuracy'].str.replace(',', '.').astype(float)
     print(gps_df)
 
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
@@ -57,8 +47,12 @@ def main():
 
     lat0_deg, lon0_deg, h0 = df['Latitude'][0], df['Longitude'][0], df['Altitude'][0]
     df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
-    df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed']]
+    df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
     print(df)
+
+    # for _, row in df.iterrows():
+    #     print(row)
+    #     pause = input("Press Enter to continue...")
 
     # Compute the mean of the step lengths and alphas
     L = df['Step'].dropna().values.mean()
@@ -68,10 +62,7 @@ def main():
     print(f"\nStep Length mean (std): {L:.2f} ({dL:.2f})")
     print(f"Alpha mean (std): {alpha:.2f} ({dalpha:.2f})")
 
-     # Seed for reproducibility
-    np.random.seed(args.seed)
-
-    model = StepHeading(r=args.r, L=L, dL=dL, dalpha=dalpha)
+    model = StepHeading(L=L, dL=dL, dalpha=dalpha)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -79,7 +70,7 @@ def main():
     # Initial state: Suppose we start at position = (0, 0)
     x0 = np.array([[0], [0]])
     # Initial covariance matrix
-    P0 = np.eye(x0.shape[0])*0.1
+    P0 = np.eye(x0.shape[0])
     kf.initialize(x0, P0)
 
     # model initial state equals the initial state
@@ -87,7 +78,7 @@ def main():
 
     # Store results for analysis
     model_positions = []
-    measured_positions = []
+    observed_positions = []
     estimated_positions = []
     timestamps = df['Timestamp'].values
 
@@ -99,37 +90,39 @@ def main():
             model_state = kf.model.step(model_state)
             kf.predict(alpha=row['Heading'])
 
-            # GPS (measurament)
+            # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = np.array([[row['E']], [row['N']]])
-                kf.update(z)
+                kf.update(z, r=row['HorizontalAccuracy'])
                 model_positions.append(model_state[:2, 0])
                 estimated_positions.append(kf.x[:2, 0])
-                measured_positions.append(z)
+                observed_positions.append(z)
 
             # NO GPS
             else:
                 model_positions.append(model_state[:2, 0])
                 estimated_positions.append(kf.x[:2, 0])
-                measured_positions.append(None)
+                observed_positions.append(None)
 
         # NO STEP
         else:
-            # GPS (measurament)
+            # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = np.array([[row['E']], [row['N']]])
-                kf.update(z)
+                kf.update(z, r=row['HorizontalAccuracy'])
                 model_positions.append(None)
                 estimated_positions.append(kf.x[:2, 0])
-                measured_positions.append(z)
+                observed_positions.append(z)
 
             # NO GPS
             else:
-                measured_positions.append(None)
+                observed_positions.append(None)
                 model_positions.append(None)
                 estimated_positions.append(None)
 
-    animate_2D_localization(model_positions, measured_positions, estimated_positions, timestamps, min_x=-1000, max_x=1000, min_y=-1000, max_y=1000)
+    # print_2D_localization(model_positions, observed_positions, estimated_positions)
+    plot_2D_localization(model_positions, observed_positions, estimated_positions)
+    animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
 
