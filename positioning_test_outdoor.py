@@ -6,7 +6,8 @@ from homaILS.plotting.static import plot_2D_localization
 from homaILS.plotting.dynamic import animate_2D_localization
 from homaILS.printing.results import print_2D_localization
 from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
-from homaILS.processing.geographic import geodetic_to_enu
+from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_utm
+from pyproj import Proj, transform
 
 
 def main():
@@ -45,9 +46,19 @@ def main():
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     print(df)
 
-    lat0_deg, lon0_deg, h0 = df['Latitude'][0], df['Longitude'][0], df['Altitude'][0]
-    df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
-    df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
+    # lat0_deg, lon0_deg, h0 = df['Latitude'][0], df['Longitude'][0], df['Altitude'][0]
+    # df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
+    # df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
+    # print(df)
+
+    # Sistema di coordinate UTM per la zona
+    utm_proj = Proj(proj="utm", zone=33, ellps="WGS84", south=False)
+
+    # Convert WGS84 to UTM or ENU
+    lon0_deg, lat0_deg, h0 = df['Longitude'][0], df['Latitude'][0], df['Altitude'][0]
+    df[['E', 'N']] = df.apply(lambda row:  geodetic_to_utm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33), axis=1).apply(pd.Series)
+    # df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
+    df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
     print(df)
 
     # for _, row in df.iterrows():
@@ -123,7 +134,6 @@ def main():
     # print_2D_localization(model_positions, observed_positions, estimated_positions)
     plot_2D_localization(model_positions, observed_positions, estimated_positions)
     animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
-
 
 
 if __name__ == "__main__":
