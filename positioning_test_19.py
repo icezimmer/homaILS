@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=0, help='Random seed.')
     # parser.add_argument('--dt', type=float, required=True, help='Time step.')
     parser.add_argument('--obs', type=int, required=True, help='Number of steps between observations.')
-    parser.add_argument('--r', type=float, required=True, help='Measurement noise.')
+    parser.add_argument('--std_r', type=float, required=True, help='Measurement noise.')
     return parser.parse_args()
 
 #TODO: Implement the main function
@@ -61,18 +61,18 @@ def main():
     step_lengths = [104 / 164, 181 / 300, 111 / 176, 226 / 337, 62 / 100]
     # Mean and standard deviation of the step lengths
     L = sum(step_lengths) / len(step_lengths)
-    dL = (sum([(l - L) ** 2 for l in step_lengths]) / len(step_lengths)) ** 0.5
+    std_L = (sum([(l - L) ** 2 for l in step_lengths]) / len(step_lengths)) ** 0.5
     alphas = df['Azimuth'].values
     # Mean and standard deviation of the alphas
     alpha = alphas.mean()
-    dalpha = alphas.std()
-    print(f"\nStep Length mean (std): {L:.2f} ({dL:.2f})")
-    print(f"Alpha mean (std): {alpha:.2f} ({dalpha:.2f})")
+    std_alpha = alphas.std()
+    print(f"\nStep Length mean (std): {L:.2f} ({std_L:.2f})")
+    print(f"Alpha mean (std): {alpha:.2f} ({std_alpha:.2f})")
 
      # Seed for reproducibility
     np.random.seed(args.seed)
 
-    model = StepHeading(dL=dL, dalpha=dalpha)
+    model = StepHeading(std_L=std_L, std_alpha=std_alpha)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -104,8 +104,8 @@ def main():
         # Update the Kalman Filter
         if t % step_update == 0:
             # Measured position with noise
-            z = model_state[:2, 0] + np.random.normal(0, args.r, 2)
-            kf.update(z, sigma_r=args.r)
+            z = model_state[:2, 0] + np.random.normal(0, args.std_r, 2)
+            kf.update(z, std_r=args.std_r)
             observed_positions.append(z)
         else:
             observed_positions.append(None)

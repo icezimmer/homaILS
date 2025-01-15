@@ -22,39 +22,31 @@ def main():
 
     pdr_df = pdr_dataset[['Timestamp', 'Step', 'Heading']]
     pdr_df = pdr_df.dropna()
-    print(pdr_df)
-    # from string to float
+    # Reset the index
+    pdr_df.reset_index(drop=True, inplace=True)
+    # From string to float
     pdr_df['Step'] = pdr_df['Step'].str.replace(',', '.').astype(float)
     pdr_df['Heading'] = pdr_df['Heading'].str.replace(',', '.').astype(float)
-    print(pdr_df)
     pdr_df['Heading'] = np.pi/2 - pdr_df['Heading']
     print(pdr_df)
 
-    gps_df = gps_dataset[['Timestamp', 'Latitude', 'Longitude', 'Altitude', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
+    gps_df = gps_dataset[['Timestamp', 'Longitude', 'Latitude', 'Altitude', 'HorizontalAccuracy', 'VerticalAccuracy']]
     gps_df = gps_df.dropna()
-    print(gps_df)
-    # from string to float
-    gps_df['Latitude'] = gps_df['Latitude'].str.replace(',', '.').astype(float)
+    # Reset the index
+    gps_df.reset_index(drop=True, inplace=True)
+    # From string to float
     gps_df['Longitude'] = gps_df['Longitude'].str.replace(',', '.').astype(float)
+    gps_df['Latitude'] = gps_df['Latitude'].str.replace(',', '.').astype(float)
     gps_df['Altitude'] = gps_df['Altitude'].str.replace(',', '.').astype(float)
-    gps_df['Speed'] = gps_df['Speed'].str.replace(',', '.').astype(float)
     gps_df['HorizontalAccuracy'] = gps_df['HorizontalAccuracy'].str.replace(',', '.').astype(float)
     gps_df['VerticalAccuracy'] = gps_df['VerticalAccuracy'].str.replace(',', '.').astype(float)
-    gps_df['SpeedAccuracy'] = gps_df['SpeedAccuracy'].str.replace(',', '.').astype(float)
+    # Convert WGS84 to UTM or ENU
+    lon0_deg, lat0_deg, h0 = gps_df['Longitude'][0], gps_df['Latitude'][0], gps_df['Altitude'][0]
+    # gps_df[['E', 'N', 'U']] = gps_df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
+    gps_df[['E', 'N']] = gps_df.apply(lambda row:  geodetic_to_utm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33), axis=1).apply(pd.Series)
     print(gps_df)
 
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
-    print(df)
-
-    # lat0_deg, lon0_deg, h0 = df['Latitude'][0], df['Longitude'][0], df['Altitude'][0]
-    # df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
-    # df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
-    # print(df)
-
-    # Convert WGS84 to UTM or ENU
-    lon0_deg, lat0_deg, h0 = df['Longitude'][0], df['Latitude'][0], df['Altitude'][0]
-    df[['E', 'N']] = df.apply(lambda row:  geodetic_to_utm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33), axis=1).apply(pd.Series)
-    # df[['E', 'N', 'U']] = df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
     print(df)
 
@@ -63,12 +55,12 @@ def main():
     #     pause = input("Press Enter to continue...")
 
     # Compute the standard deviations of the step length and heading
-    dL = df['Step'].dropna().values.std()
-    dalpha = df['Heading'].dropna().values.std()
-    print(f"\nStep Length std: {dL:.2f}")
-    print(f"Alpha mean std: {dalpha:.2f}")
+    std_L = df['Step'].dropna().values.std()
+    std_alpha = df['Heading'].dropna().values.std()
+    print(f"\nStep Length std: {std_L:.2f}")
+    print(f"Alpha mean std: {std_alpha:.2f}")
 
-    model = StepHeading(dL=dL, dalpha=dalpha)
+    model = StepHeading(std_L=std_L, std_alpha=std_alpha)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -99,7 +91,7 @@ def main():
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = np.array([[row['E']], [row['N']]])
-                kf.update(z, sigma_r=row['HorizontalAccuracy'])
+                kf.update(z, std_r=row['HorizontalAccuracy'])
                 model_positions.append(model_state[:2, 0])
                 estimated_positions.append(kf.x[:2, 0])
                 observed_positions.append(z)
@@ -115,7 +107,7 @@ def main():
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = np.array([[row['E']], [row['N']]])
-                kf.update(z, sigma_r=row['HorizontalAccuracy'])
+                kf.update(z, std_r=row['HorizontalAccuracy'])
                 model_positions.append(None)
                 estimated_positions.append(kf.x[:2, 0])
                 observed_positions.append(z)
