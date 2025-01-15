@@ -231,7 +231,6 @@ class StepHeading(LinearModel):
         """
         Initialize the Step Heading model.
         - The static parameters are:
-            - L: the mean step length;
             - dL: the standard deviation of the step length;
             - dalpha: the standard deviation of the direction.
         - The dynamic parameters are:
@@ -240,26 +239,28 @@ class StepHeading(LinearModel):
         - The observations are [x, y].
         """
         # Force the user to provide the static parameters
-        if 'L' not in static_params:
-            raise ValueError("The mean step length 'L' must be provided.")
         if 'dL' not in static_params:
             raise ValueError("The standard deviation of the step length 'dL' must be provided.")
         if 'dalpha' not in static_params:
             raise ValueError("The standard deviation of the direction 'dalpha' must be provided.")
-        self.L = static_params['L']
         self.dL = static_params['dL']
         self.dalpha = static_params['dalpha']
 
         # State model parameters
         self.F = np.array([[1, 0],
                            [0, 1]])
-        self.B = np.eye(2)*self.L
+        self.B = None
         self.u = None
         self.Q = None
 
         # Observation model parameters
         self.H = np.eye(2)
         self.R = None
+
+    @staticmethod
+    def compute_B(L):
+        B = np.eye(2)*L
+        return B
     
     @staticmethod
     def compute_u(alpha):
@@ -301,17 +302,21 @@ class StepHeading(LinearModel):
             - F, B, u, Q : np.array, np.array, np.array, np.array.
         """
         # Force the user to provide the dynamic parameters
+        if 'L' not in dynamic_params:
+            raise ValueError("The mean step length 'L' must be provided.")
         if 'alpha' not in dynamic_params:
             raise ValueError("The direction 'alpha' must be provided.")
+        L = dynamic_params['L']
         alpha = dynamic_params['alpha']
 
+        self.B = self.compute_B(L)
         self.u = self.compute_u(alpha)
-        self.Q = self.compute_Q(self.L, self.dL, alpha, self.dalpha)
+        self.Q = self.compute_Q(L, self.dL, alpha, self.dalpha)
         return self.F, self.B, self.u, self.Q
     
     @staticmethod
-    def compute_R(r):
-        R = np.eye(2)*(r**2)
+    def compute_R(sigma_r):
+        R = np.eye(2)*(sigma_r**2)
         return R
 
     def get_observation_model(self, **dynamic_params):
@@ -323,11 +328,11 @@ class StepHeading(LinearModel):
             - H, R : np.array, np.array.
         """
         # Force the user to provide the dynamic parameters
-        if 'r' not in dynamic_params:
-            raise ValueError("The observation noise 'r' must be provided.")
-        r = dynamic_params['r']
+        if 'sigma_r' not in dynamic_params:
+            raise ValueError("The deviation of the observation 'sigma_r' must be provided.")
+        sigma_r = dynamic_params['sigma_r']
 
-        self.R = self.compute_R(r)
+        self.R = self.compute_R(sigma_r)
         return self.H, self.R
     
 

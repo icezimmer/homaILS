@@ -7,7 +7,7 @@ from homaILS.plotting.dynamic import animate_2D_localization
 from homaILS.printing.results import print_2D_localization
 from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
 from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_utm
-from pyproj import Proj, transform
+from pyproj import Proj
 
 
 def main():
@@ -51,9 +51,6 @@ def main():
     # df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'U', 'Speed', 'HorizontalAccuracy', 'VerticalAccuracy', 'SpeedAccuracy']]
     # print(df)
 
-    # Sistema di coordinate UTM per la zona
-    utm_proj = Proj(proj="utm", zone=33, ellps="WGS84", south=False)
-
     # Convert WGS84 to UTM or ENU
     lon0_deg, lat0_deg, h0 = df['Longitude'][0], df['Latitude'][0], df['Altitude'][0]
     df[['E', 'N']] = df.apply(lambda row:  geodetic_to_utm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33), axis=1).apply(pd.Series)
@@ -65,15 +62,13 @@ def main():
     #     print(row)
     #     pause = input("Press Enter to continue...")
 
-    # Compute the mean of the step lengths and alphas
-    L = df['Step'].dropna().values.mean()
+    # Compute the standard deviations of the step length and heading
     dL = df['Step'].dropna().values.std()
-    alpha = df['Heading'].dropna().values.mean()
     dalpha = df['Heading'].dropna().values.std()
-    print(f"\nStep Length mean (std): {L:.2f} ({dL:.2f})")
-    print(f"Alpha mean (std): {alpha:.2f} ({dalpha:.2f})")
+    print(f"\nStep Length std: {dL:.2f}")
+    print(f"Alpha mean std: {dalpha:.2f}")
 
-    model = StepHeading(L=L, dL=dL, dalpha=dalpha)
+    model = StepHeading(dL=dL, dalpha=dalpha)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -99,12 +94,12 @@ def main():
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
             model_state = kf.model.step(model_state)
-            kf.predict(alpha=row['Heading'])
+            kf.predict(alpha=row['Heading'], L=row['Step'])
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = np.array([[row['E']], [row['N']]])
-                kf.update(z, r=row['HorizontalAccuracy'])
+                kf.update(z, sigma_r=row['HorizontalAccuracy'])
                 model_positions.append(model_state[:2, 0])
                 estimated_positions.append(kf.x[:2, 0])
                 observed_positions.append(z)
@@ -120,7 +115,7 @@ def main():
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = np.array([[row['E']], [row['N']]])
-                kf.update(z, r=row['HorizontalAccuracy'])
+                kf.update(z, sigma_r=row['HorizontalAccuracy'])
                 model_positions.append(None)
                 estimated_positions.append(kf.x[:2, 0])
                 observed_positions.append(z)

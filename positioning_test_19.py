@@ -72,7 +72,7 @@ def main():
      # Seed for reproducibility
     np.random.seed(args.seed)
 
-    model = StepHeading(L=L, dL=dL, dalpha=dalpha)
+    model = StepHeading(dL=dL, dalpha=dalpha)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -99,13 +99,13 @@ def main():
         model_state = kf.model.step(model_state)
 
         # Predict the next state
-        kf.predict(alpha=alphas[t])
+        kf.predict(alpha=alphas[t], L=L)
 
         # Update the Kalman Filter
         if t % step_update == 0:
             # Measured position with noise
             z = model_state[:2, 0] + np.random.normal(0, args.r, 2)
-            kf.update(z, r=args.r)
+            kf.update(z, sigma_r=args.r)
             observed_positions.append(z)
         else:
             observed_positions.append(None)
