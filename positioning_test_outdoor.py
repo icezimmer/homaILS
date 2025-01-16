@@ -2,11 +2,11 @@ import pandas as pd
 import numpy as np
 from homaILS.modeling.linear import StepHeading
 from homaILS.filtering.kalman import KalmanFilter
-from homaILS.plotting.static import plot_2D_localization
+from homaILS.plotting.static import plot_2D_localization, map_2D_localization
 from homaILS.plotting.dynamic import animate_2D_localization
 from homaILS.printing.results import print_2D_localization
 from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
-from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_utm
+from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_localutm, localutm_to_geodetic
 from pyproj import Proj
 
 
@@ -43,8 +43,12 @@ def main():
     # Convert WGS84 to UTM or ENU
     lon0_deg, lat0_deg, h0 = gps_df['Longitude'][0], gps_df['Latitude'][0], gps_df['Altitude'][0]
     # gps_df[['E', 'N', 'U']] = gps_df.apply(lambda row: geodetic_to_enu(row['Latitude'], row['Longitude'], row['Altitude'], lat0_deg, lon0_deg, h0), axis=1).apply(pd.Series)
-    gps_df[['E', 'N']] = gps_df.apply(lambda row:  geodetic_to_utm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33), axis=1).apply(pd.Series)
+    gps_df[['E', 'N']] = gps_df.apply(lambda row:  geodetic_to_localutm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33, True), axis=1).apply(pd.Series)
     print(gps_df)
+
+    # for _, row in gps_df.iterrows():
+    #     print(row[['Longitude', 'Latitude']], localutm_to_geodetic(row['E'], row['N'], lon0_deg, lat0_deg, 33, True))
+    #     pause = input("Press Enter to continue...")
 
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
@@ -54,11 +58,13 @@ def main():
     #     print(row)
     #     pause = input("Press Enter to continue...")
 
-    # Compute the standard deviations of the step length and heading
-    std_L = df['Step'].dropna().values.std()
-    std_alpha = df['Heading'].dropna().values.std()
-    print(f"\nStep Length std: {std_L:.2f}")
-    print(f"Alpha mean std: {std_alpha:.2f}")
+    # # Compute the standard deviations of the step length and heading
+    # std_L = df['Step'].dropna().values.std()
+    # std_alpha = df['Heading'].dropna().values.std()
+    # print(f"\nStep Length std: {std_L:.2f}")
+    # print(f"Alpha mean std: {std_alpha:.2f}")
+    std_L = 0.1
+    std_alpha = np.radians(10)
 
     model = StepHeading(std_L=std_L, std_alpha=std_alpha)
     
@@ -86,7 +92,7 @@ def main():
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
             model_state = kf.model.step(model_state)
-            kf.predict(alpha=row['Heading'], L=row['Step'])
+            kf.predict(alpha=row['Heading'], L=0.7)
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
@@ -119,8 +125,9 @@ def main():
                 estimated_positions.append(None)
 
     # print_2D_localization(model_positions, observed_positions, estimated_positions)
-    plot_2D_localization(model_positions, observed_positions, estimated_positions)
-    animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
+    # plot_2D_localization(model_positions, observed_positions, estimated_positions)
+    map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
+    # animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
 if __name__ == "__main__":

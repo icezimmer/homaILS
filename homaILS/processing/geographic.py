@@ -94,23 +94,59 @@ def geodetic_to_enu(lon_deg, lat_deg, h, lon0_deg, lat0_deg, h0):
     return E, N, U
 
 
-def geodetic_to_utm(lon_deg, lat_deg, lon0_deg, lat0_deg, zone):
+def geodetic_to_localutm(lon_deg, lat_deg, lon0_deg, lat0_deg, zone, northern_hemisphere):
     """
-    Convert WGS84 geodetic coordinates (longitude, latitude) to
-    UTM coordinates (E, N), given a reference point.
+    Convert WGS84 geodetic coordinates (longitude, latitude) to relative UTM coordinates (E, N)
+    given a reference longitude/latitude.
     - Inputs:
         - lon_deg : float, Longitude in decimal degrees.
         - lat_deg : float, Latitude in decimal degrees.
         - lon0_deg : float, Reference longitude in decimal degrees.
         - lat0_deg : float, Reference latitude in decimal degrees.
+        - zone : int, UTM zone number.
+        - northern_hemisphere : bool, True if in the northern hemisphere, False if in the southern.
     - Outputs:
-        - E : float, UTM East coordinate in meters.
-        - N : float, UTM North coordinate in meters
+        - E : float, Offset in meters from reference Easting (E0).
+        - N : float, Offset in meters from reference Northing (N0).
     """
     # Coordinate projection for UTM zone
-    utm_proj = Proj(proj="utm", zone=zone, ellps="WGS84", south=False)
+    utm_proj = Proj(proj="utm", zone=zone, ellps="WGS84", south=not northern_hemisphere)
 
     # Convert to UTM
     E, N = utm_proj(lon_deg, lat_deg)
     E0, N0 = utm_proj(lon0_deg, lat0_deg)
     return E - E0, N - N0
+
+
+
+def localutm_to_geodetic(E, N, lon0_deg, lat0_deg, zone, northern_hemisphere):
+    """
+    Convert relative UTM coordinates (E, N) to WGS84 geodetic coordinates (longitude, latitude)
+    given a reference longitude/latitude.
+    
+    Parameters:
+    - E (float): Offset in meters from reference Easting (E0).
+    - N (float): Offset in meters from reference Northing (N0).
+    - lon0_deg (float): Reference longitude in decimal degrees.
+    - lat0_deg (float): Reference latitude in decimal degrees.
+    - zone (int): UTM zone number.
+    - northern_hemisphere (bool): True if in the northern hemisphere, False if in the southern.
+    
+    Returns:
+    - lon_deg (float): Longitude in decimal degrees.
+    - lat_deg (float): Latitude in decimal degrees.
+    """
+    # Define UTM projection for the given zone
+    utm_proj = Proj(proj="utm", zone=zone, ellps="WGS84", south=not northern_hemisphere)
+    
+    # Convert reference lat/lon to UTM (E0, N0)
+    E0, N0 = utm_proj(lon0_deg, lat0_deg)
+    
+    # Compute absolute UTM coordinates
+    abs_E = E0 + E
+    abs_N = N0 + N
+    
+    # Convert absolute UTM coordinates to lat/lon
+    lon, lat = utm_proj(abs_E, abs_N, inverse=True)
+    
+    return lon, lat
