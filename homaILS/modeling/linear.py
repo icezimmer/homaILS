@@ -49,10 +49,12 @@ class LinearModel:
         - Return:
             - x : np.array (Next state vector).
         """
+        x = x.reshape(-1, 1)
         if self.u is None:
             x = self.F @ x
         else:
-            x = self.F @ x + self.B @ self.u
+            u = self.u.reshape(-1, 1)
+            x = self.F @ x + self.B @ u
         return x
         
 
