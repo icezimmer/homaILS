@@ -114,7 +114,7 @@ def main():
         model_positions.append(model_state[:2, 0])
         estimated_positions.append(kf.x[:2, 0])
 
-    # print_2D_localization(model_positions, observed_positions, estimated_positions)
+    print_2D_localization(model_positions, observed_positions, estimated_positions)
     # plot_2D_localization(model_positions, observed_positions, estimated_positions)
     animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps)
 
