@@ -5,8 +5,7 @@ from homaILS.filtering.kalman import KalmanFilter
 from homaILS.plotting.static import plot_2D_localization, map_2D_localization
 from homaILS.plotting.dynamic import animate_2D_localization
 from homaILS.printing.results import print_2D_localization
-from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
-from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_localutm, localutm_to_geodetic
+from homaILS.processing.geographic import geodetic_to_localutm
 
 
 def main():
@@ -43,15 +42,11 @@ def main():
     gps_df[['E', 'N']] = gps_df.apply(lambda row:  geodetic_to_localutm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33, True), axis=1).apply(pd.Series)
     print(gps_df)
 
-    pause = input("Press Enter to continue...")
-
-    # for _, row in gps_df.iterrows():
-    #     print(row[['Longitude', 'Latitude']], localutm_to_geodetic(row['E'], row['N'], lon0_deg, lat0_deg, 33, True))
-    #     pause = input("Press Enter to continue...")
-
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
     print(df)
+
+    pause = input("Press Enter to continue...")
 
     std_L = 0.1
     std_alpha = np.radians(10)
@@ -91,10 +86,6 @@ def main():
                 model_positions.append(model_state[:2, :])
                 estimated_positions.append(kf.x[:2, :])
                 observed_positions.append(z)
-                # print shape
-                print(model_state[:2, :].shape)
-                print(kf.x[:2, :].shape)
-                print(z.shape)
 
             # NO GPS
             else:
@@ -118,9 +109,9 @@ def main():
                 model_positions.append(None)
                 estimated_positions.append(None)
 
-    print_2D_localization(model_positions, observed_positions, estimated_positions)
-    plot_2D_localization(model_positions, observed_positions, estimated_positions)
-    # map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
+    # print_2D_localization(model_positions, observed_positions, estimated_positions)
+    # plot_2D_localization(model_positions, observed_positions, estimated_positions)
+    map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
     # animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
