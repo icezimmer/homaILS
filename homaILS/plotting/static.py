@@ -101,4 +101,4 @@ def map_2D_localization(model_positions, observed_positions, estimated_positions
     map_.get_root().html.add_child(folium.Element(legend_html))
 
     map_.save('2D_Localization_Map.html')
-    webbrowser.open('2D_Localization_Map.html')
+    webbrowser.open(url='2D_Localization_Map.html', new=1)

@@ -19,10 +19,10 @@ def parse_args():
 
 #TODO: Implement the main function
 def main():
-    acceleration_path = "data/Data_17122024/20241217T133655-19-Acceleration.csv"
-    GPS_path = "data/Data_17122024/20241217T133655-19-GPS.csv"
-    orientation_path = "data/Data_17122024/20241217T133655-19-Orientation.csv"
-    step_path = "data/Data_17122024/20241217T133655-19-Step.csv"
+    acceleration_path = "data/17_12_2024/20241217T133655-19-Acceleration.csv"
+    GPS_path = "data/17_12_2024/20241217T133655-19-GPS.csv"
+    orientation_path = "data/17_12_2024/20241217T133655-19-Orientation.csv"
+    step_path = "data/17_12_2024/20241217T133655-19-Step.csv"
 
     acceleration_df = pd.read_csv(acceleration_path)
     GPS_df = pd.read_csv(GPS_path)
