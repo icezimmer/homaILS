@@ -201,28 +201,94 @@ class StepHeading(LinearModel):
     
     @staticmethod
     def compute_Q(L, std_L, alpha, std_alpha):
-        # Compute dx and dy
-        std_x = (L + std_L) - (L - std_L) * np.cos(std_alpha)
-        std_y = 2 * (L + std_L) * np.sin(std_alpha)
+        """
+        Computes the covariance matrix Q using a canonical covariance matrix
+        and rotating it with a rotation matrix.
 
-        # Variance
-        sigma_x2 = std_x**2
-        sigma_y2 = std_y**2
+        Parameters:
+            L (float): Step size (length).
+            std_L (float): Standard deviation of the step size.
+            alpha (float): Heading angle in radians.
+            std_alpha (float): Standard deviation of the heading angle.
 
-        cos_alpha = np.cos(alpha)
-        sin_alpha = np.sin(alpha)
-        # Compute the rotation matrix
-        rotation_matrix = np.array([[cos_alpha, -sin_alpha],
-                                    [sin_alpha, cos_alpha]])
+        Returns:
+            numpy.ndarray: 2x2 covariance matrix Q.
+        """
         # Canonical covariance matrix
-        cov_matrix = np.array([
+        sigma_x2 = std_L**2
+        sigma_y2 = (L * np.sin(std_alpha))**2
+        C = np.array([
             [sigma_x2, 0],
             [0, sigma_y2]
         ])
+        
+        # Rotation matrix
+        cos_alpha = np.cos(alpha)
+        sin_alpha = np.sin(alpha)
+        R = np.array([
+            [cos_alpha, -sin_alpha],
+            [sin_alpha,  cos_alpha]
+        ])
+        
         # Rotate the canonical covariance matrix
-        Q = rotation_matrix @ cov_matrix @ rotation_matrix.T
-
+        Q = R @ C @ R.T
+        
         return Q
+    # def compute_Q(L, std_L, alpha, std_alpha):
+    #     """
+    #     Computes the covariance matrix Q for a step-heading model. The transition function is
+    #     x_k = x_{k-1} + L*cos(alpha) + w_k[0]
+    #     y_k = y_{k-1} + L*sin(alpha) + w_k[1]
+    #     f = [x + L*cos(alpha), y + L*sin(alpha)]
+
+    #     Parameters:
+    #         L (float): Step size (length).
+    #         std_L (float): Standard deviation of the step size.
+    #         alpha (float): Heading angle in radians.
+    #         std_alpha (float): Standard deviation of the heading angle.
+
+    #     Returns:
+    #         numpy.ndarray: 2x2 covariance matrix Q.
+    #     """
+    #     # Jacobian matrix of f respect to L and alpha
+    #     G = np.array([
+    #         [np.cos(alpha), -L * np.sin(alpha)],
+    #         [np.sin(alpha),  L * np.cos(alpha)]
+    #     ])
+
+    #     # Covariance matrix of L and alpha
+    #     Sigma_u = np.array([
+    #         [std_L**2, 0],
+    #         [0, std_alpha**2]
+    #     ])
+
+    #     # Compute Q = G * Sigma_u * G.T
+    #     Q = G @ Sigma_u @ G.T
+
+    #     return Q
+    # def compute_Q(L, std_L, alpha, std_alpha):
+    #     # Compute dx and dy
+    #     std_x = (L + std_L) - (L - std_L) * np.cos(std_alpha)
+    #     std_y = 2 * (L + std_L) * np.sin(std_alpha)
+
+    #     # Variance
+    #     sigma_x2 = std_x**2
+    #     sigma_y2 = std_y**2
+
+    #     cos_alpha = np.cos(alpha)
+    #     sin_alpha = np.sin(alpha)
+    #     # Compute the rotation matrix
+    #     rotation_matrix = np.array([[cos_alpha, -sin_alpha],
+    #                                 [sin_alpha, cos_alpha]])
+    #     # Canonical covariance matrix
+    #     cov_matrix = np.array([
+    #         [sigma_x2, 0],
+    #         [0, sigma_y2]
+    #     ])
+    #     # Rotate the canonical covariance matrix
+    #     Q = rotation_matrix @ cov_matrix @ rotation_matrix.T
+
+    #     return Q
     
     def get_state_model(self, **dynamic_params):
         """
