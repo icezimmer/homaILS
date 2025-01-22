@@ -7,8 +7,25 @@ from homaILS.plotting.dynamic import animate_2D_localization
 from homaILS.printing.results import print_2D_localization
 from homaILS.processing.geographic import geodetic_to_localutm
 
+STEP_LENGTH = 0.65
+STEP_STD = 0.1
+MAGNETIC_DECLINATION = np.radians(3+(2/3))
+HEADING_STD = np.radians(10)
+
+
+def arg_parser():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Positioning test 56')
+    parser.add_argument('--window_heading', type=int, default=1, help='Window size for moving average of heading')
+    args = parser.parse_args()
+
+    return args
+
 
 def main():
+
+    window_heading = arg_parser().window_heading
 
     # Load data
     step_dataset = pd.read_csv("data/17_01_2025/20250117T141441-56-Step.csv")
@@ -19,18 +36,31 @@ def main():
     print(orientation_dataset)
     print(gps_dataset)
 
-    step_dataset['Step'] = 0.65
+    # Set the step length
+    step_dataset['Step'] = STEP_LENGTH
+
+    # Add the magnetic declination to the azimuth
+    orientation_dataset['Azimuth'] = orientation_dataset['Azimuth'] + MAGNETIC_DECLINATION
+    # From (E,N) to (x,y)
+    orientation_dataset['Azimuth'] = np.pi/2 - orientation_dataset['Azimuth']
+    # Vectorial moving average of heading using cos, sin and arctan2
+    orientation_dataset['cos'] = np.cos(orientation_dataset['Azimuth'])
+    orientation_dataset['sin'] = np.sin(orientation_dataset['Azimuth'])
+    orientation_dataset['cos_smooth'] = orientation_dataset['cos'].rolling(window=window_heading, min_periods=1, center=True).mean()
+    orientation_dataset['sin_smooth'] = orientation_dataset['sin'].rolling(window=window_heading, min_periods=1, center=True).mean()
+    # Compute the angle smoothed in [-pi, pi]
+    orientation_dataset['Azimuth_smooth'] = np.arctan2(orientation_dataset['sin_smooth'], orientation_dataset['cos_smooth'])
+
     pdr_df = pd.merge(step_dataset, orientation_dataset, on='Timestamp', how='outer')
-    pdr_df = pdr_df[['Timestamp', 'Step', 'Azimuth']]
+    pdr_df = pdr_df[['Timestamp', 'Step', 'Azimuth_smooth']]
     # Fill the NaN values in the azimuth column with the previous value
-    pdr_df['Azimuth'] = pdr_df['Azimuth'].ffill()
+    pdr_df['Azimuth_smooth'] = pdr_df['Azimuth_smooth'].ffill()
     # Drop where Step is NaN
     pdr_df = pdr_df.dropna(subset=['Step'])
     # Reset the index
     pdr_df.reset_index(drop=True, inplace=True)
     # Rename the columns
-    pdr_df.rename(columns={'Azimuth': 'Heading'}, inplace=True)
-    pdr_df['Heading'] = np.pi/2 - pdr_df['Heading']
+    pdr_df.rename(columns={'Azimuth_smooth': 'Heading'}, inplace=True)
     print(pdr_df)
 
     gps_df = gps_dataset[['Timestamp', 'Longitude', 'Latitude', 'HorizontalAccuracy']]
@@ -48,10 +78,7 @@ def main():
 
     pause = input("Press Enter to continue...")
 
-    std_L = 0.1
-    std_alpha = np.radians(10)
-
-    model = StepHeading(std_L=std_L, std_alpha=std_alpha)
+    model = StepHeading(std_L=STEP_STD, std_alpha=HEADING_STD)
     
     # Initialize the filter
     kf = KalmanFilter(model)

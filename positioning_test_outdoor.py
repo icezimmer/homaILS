@@ -9,8 +9,25 @@ from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
 from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_localutm, localutm_to_geodetic
 from pyproj import Proj
 
+STEP_LENGTH = 0.7
+STEP_STD = 0.1
+MAGNETIC_DECLINATION = np.radians(3+(2/3))
+HEADING_STD = np.radians(10)
+
+
+def arg_parser():
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Positioning test outdoor')
+    parser.add_argument('--window_heading', type=int, default=1, help='Window size for moving average of heading')
+    args = parser.parse_args()
+
+    return args
+
 
 def main():
+    window_heading = arg_parser().window_heading
+
     # Load PDR dataset
     pdr_dataset = load_pdr_dataset()
 
@@ -24,10 +41,21 @@ def main():
     pdr_df = pdr_df.dropna()
     # Reset the index
     pdr_df.reset_index(drop=True, inplace=True)
+    pdr_df['Step'] = STEP_LENGTH
     # From string to float
-    pdr_df['Step'] = pdr_df['Step'].str.replace(',', '.').astype(float)
     pdr_df['Heading'] = pdr_df['Heading'].str.replace(',', '.').astype(float)
+    # Add the magnetic declination to the azimuth
+    pdr_df['Heading'] = pdr_df['Heading'] + MAGNETIC_DECLINATION
+    # From (E,N) to (x,y)
     pdr_df['Heading'] = np.pi/2 - pdr_df['Heading']
+    # Vectorial moving average of heading using cos, sin and arctan2
+    pdr_df['cos'] = np.cos(pdr_df['Heading'])
+    pdr_df['sin'] = np.sin(pdr_df['Heading'])
+    pdr_df['cos_smooth'] = pdr_df['cos'].rolling(window=window_heading, min_periods=1, center=True).mean()
+    pdr_df['sin_smooth'] = pdr_df['sin'].rolling(window=window_heading, min_periods=1, center=True).mean()
+    pdr_df['Heading_smooth'] = np.arctan2(pdr_df['sin_smooth'], pdr_df['cos_smooth'])
+    pdr_df = pdr_df[['Timestamp', 'Step', 'Heading_smooth']]
+    pdr_df.rename(columns={'Heading_smooth': 'Heading'}, inplace=True)
     print(pdr_df)
 
     gps_df = gps_dataset[['Timestamp', 'Longitude', 'Latitude', 'Altitude', 'HorizontalAccuracy', 'VerticalAccuracy']]
@@ -46,27 +74,11 @@ def main():
     gps_df[['E', 'N']] = gps_df.apply(lambda row:  geodetic_to_localutm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33, True), axis=1).apply(pd.Series)
     print(gps_df)
 
-    # for _, row in gps_df.iterrows():
-    #     print(row[['Longitude', 'Latitude']], localutm_to_geodetic(row['E'], row['N'], lon0_deg, lat0_deg, 33, True))
-    #     pause = input("Press Enter to continue...")
-
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
     print(df)
 
-    # for _, row in df.iterrows():
-    #     print(row)
-    #     pause = input("Press Enter to continue...")
-
-    # # Compute the standard deviations of the step length and heading
-    # std_L = df['Step'].dropna().values.std()
-    # std_alpha = df['Heading'].dropna().values.std()
-    # print(f"\nStep Length std: {std_L:.2f}")
-    # print(f"Alpha mean std: {std_alpha:.2f}")
-    std_L = 0.1
-    std_alpha = np.radians(10)
-
-    model = StepHeading(std_L=std_L, std_alpha=std_alpha)
+    model = StepHeading(std_L=STEP_STD, std_alpha=HEADING_STD)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -92,7 +104,7 @@ def main():
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
             model_state = kf.model.step(model_state)
-            kf.predict(alpha=row['Heading'], L=0.7)
+            kf.predict(alpha=row['Heading'], L=row['Step'])
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
