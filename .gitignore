@@ -125,3 +125,6 @@ dmypy.json
 
 # Environment
 ILSenv/
+
+# html maps
+*.html
