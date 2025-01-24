@@ -5,39 +5,96 @@ from pyproj import Proj, Transformer
 import numpy as np
 import webbrowser
 from homaILS.processing.geographic import localutm_to_geodetic
+import numpy as np
+from matplotlib.patches import Circle
 
 
-def plot_2D_localization(model_positions, observed_positions, estimated_positions):
+def plot_uncertainty_circle(position, cov, color, ax):
+    radius = np.sqrt(np.trace(cov))  # sqrt(trace(Q))
+    circle = Circle(position, radius, color=color, alpha=0.2, fill=True)
+    ax.add_patch(circle)
+
+
+def plot_2D_localization(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors):
     """
-    Plot the 2D localization results using matplotlib.
+    Plot the 2D localization results using simplified circular uncertainty visualization.
     """
     # Check if the lengths of the lists are the same
-    if not (len(model_positions) == len(observed_positions) == len(estimated_positions)):
+    if not (len(model_positions) == len(observed_positions) == len(estimated_positions) == len(model_errors) == len(observed_errors) == len(estimated_errors)):
         raise ValueError("Lengths of the input lists are not the same")
 
     # Remove None values
     model_positions = [m for m in model_positions if m is not None]
     estimated_positions = [m for m in estimated_positions if m is not None]
     observed_positions = [m for m in observed_positions if m is not None]
+    model_errors = [m for m in model_errors if m is not None]
+    observed_errors = [m for m in observed_errors if m is not None]
+    estimated_errors = [m for m in estimated_errors if m is not None]
 
-    model_xs, model_ys = zip(*model_positions)
-    meas_xs, meas_ys = zip(*observed_positions)
-    est_xs, est_ys = zip(*estimated_positions)
+    fig, ax = plt.subplots(figsize=(9, 9))
 
-    plt.figure(figsize=(9,9))
-    # Plot if they are not empty
+    # Plot points
     if model_positions:
-        plt.plot(model_xs, model_ys, 'g.', label='Model Trajectory')
+        model_xs, model_ys = zip(*model_positions)
+        ax.plot(model_xs, model_ys, 'g.', label='Model Trajectory')
     if observed_positions:
-        plt.plot(meas_xs, meas_ys, 'r.', label='Observations')
+        obs_xs, obs_ys = zip(*observed_positions)
+        ax.plot(obs_xs, obs_ys, 'r.', label='Observations')
     if estimated_positions:
-        plt.plot(est_xs, est_ys, 'b.', label='Kalman Estimates')
-    plt.xlabel('X Position')
-    plt.ylabel('Y Position')
-    plt.title('2D Localization - Kalman Filter')
-    plt.legend()
-    plt.grid(True)
+        est_xs, est_ys = zip(*estimated_positions)
+        ax.plot(est_xs, est_ys, 'b.', label='Kalman Estimates')
+
+    if model_errors:
+        for pos, cov in zip(model_positions, model_errors):
+            plot_uncertainty_circle(pos, cov, 'green', ax)
+
+    if observed_errors:
+        for pos, cov in zip(observed_positions, observed_errors):
+            plot_uncertainty_circle(pos, cov, 'red', ax)
+
+    if estimated_errors:
+        for pos, cov in zip(estimated_positions, estimated_errors):
+            plot_uncertainty_circle(pos, cov, 'blue', ax)
+
+    ax.set_xlabel('X Position')
+    ax.set_ylabel('Y Position')
+    ax.set_title('2D Localization - Simplified Uncertainty')
+    ax.legend()
+    ax.grid(True)
     plt.show()
+
+
+# def plot_2D_localization(model_positions, observed_positions, estimated_positions):
+#     """
+#     Plot the 2D localization results using matplotlib.
+#     """
+#     # Check if the lengths of the lists are the same
+#     if not (len(model_positions) == len(observed_positions) == len(estimated_positions)):
+#         raise ValueError("Lengths of the input lists are not the same")
+
+#     # Remove None values
+#     model_positions = [m for m in model_positions if m is not None]
+#     estimated_positions = [m for m in estimated_positions if m is not None]
+#     observed_positions = [m for m in observed_positions if m is not None]
+
+#     model_xs, model_ys = zip(*model_positions)
+#     meas_xs, meas_ys = zip(*observed_positions)
+#     est_xs, est_ys = zip(*estimated_positions)
+
+#     plt.figure(figsize=(9,9))
+#     # Plot if they are not empty
+#     if model_positions:
+#         plt.plot(model_xs, model_ys, 'g.', label='Model Trajectory')
+#     if observed_positions:
+#         plt.plot(meas_xs, meas_ys, 'r.', label='Observations')
+#     if estimated_positions:
+#         plt.plot(est_xs, est_ys, 'b.', label='Kalman Estimates')
+#     plt.xlabel('X Position')
+#     plt.ylabel('Y Position')
+#     plt.title('2D Localization - Kalman Filter')
+#     plt.legend()
+#     plt.grid(True)
+#     plt.show()
 
 
 def map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg, lat0_deg, utm_zone, northern_hemisphere):

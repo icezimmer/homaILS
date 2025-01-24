@@ -86,7 +86,8 @@ def main():
     # Initial state: Suppose we start at position = (0, 0)
     x0 = np.array([[0], [0]])
     # Initial covariance matrix
-    P0 = np.eye(x0.shape[0])
+    # P0 = np.eye(x0.shape[0])
+    P0 = np.zeros((2, 2))
     kf.initialize(x0, P0)
 
     # model initial state equals the initial state
@@ -103,8 +104,8 @@ def main():
 
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
-            model_state = kf.model.step(model_state)
             kf.predict(alpha=row['Heading'], L=row['Step'])
+            model_state = kf.model.a_priori_state(model_state)
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
