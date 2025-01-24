@@ -10,7 +10,7 @@ class LinearModel:
         """
         # Force the user to provide the static parameters
 
-        # State model parameters
+        # Transtion model parameters
         self.F = None
         self.B = None
         self.u = None
@@ -20,14 +20,15 @@ class LinearModel:
         self.H = None
         self.R = None
 
-    def get_state_model(self, **dynamic_params):
+    def get_transition_model(self, **dynamic_params):
         """
-        Return the state model for Kalman Filter.
+        Return the transition model for Kalman Filter.
         Input:
             - dynamic_params : dict, Dynamic parameters for the model.
         Return:
             - F, B, u, Q : np.array, np.array, np.array, np.array.
         """
+        # Force the user to provide the dynamic parameters
         return self.F, self.B, self.u, self.Q
 
     def get_observation_model(self, **dynamic_params):
@@ -38,16 +39,16 @@ class LinearModel:
         - Return:
             - H, R : np.array, np.array.
         """
+        # Force the user to provide the dynamic parameters
         return self.H, self.R
 
-    def step(self, x):
+    def a_priori_state(self, x):
         """
-        Compute the next state given the current state and control input,
-        without updating the state estimate.
+        Compute the a priori state estimate given the current state estimate and control input.
         - Input:
-            - x : np.array (State vector).
+            - x : np.array (State estimate at time n given observations up to and including at time m ≤ n).
         - Return:
-            - x : np.array (Next state vector).
+            - x : np.array (New a priori state estimate at time n+1 given the old observations).
         """
         x = x.reshape(-1, 1)
         if self.u is None:
@@ -56,6 +57,17 @@ class LinearModel:
             u = self.u.reshape(-1, 1)
             x = self.F @ x + self.B @ u
         return x
+    
+    def a_priori_covariance(self, P):
+        """
+        Compute the a priori estimate covariance matrix.
+        - Input:
+            - P : np.array (Estimate covariance matrix at time n given observations up to and including at time m ≤ n).
+        - Return:
+            - P : np.array (New a priori estimate covariance matrix at time n+1 given the old observations).
+        """
+        P = self.F @ P @ self.F.T + self.Q
+        return P
         
 
 class UniformLinearMotion(LinearModel):
@@ -89,7 +101,7 @@ class UniformLinearMotion(LinearModel):
         std_q = static_params['std_q']
         std_r = static_params['std_r']
 
-        # State model parameters
+        # Transition model parameters
         self.F = np.array([[1, 0, dt, 0],
                            [0, 1, 0, dt],
                            [0, 0, 1, 0],
@@ -137,7 +149,7 @@ class UniformLinearMotionSpeedObs(LinearModel):
         std_q = static_params['std_q']
         std_r = static_params['std_r']
 
-        # State model parameters
+        # Transition model parameters
         self.F = np.array([[1, 0, dt, 0],
                            [0, 1, 0, dt],
                            [0, 0, 1, 0],
@@ -177,7 +189,7 @@ class StepHeading(LinearModel):
         self.std_L = static_params['std_L']
         self.std_alpha = static_params['std_alpha']
 
-        # State model parameters
+        # Transition model parameters
         self.F = np.array([[1, 0],
                            [0, 1]])
         self.B = None
@@ -290,7 +302,7 @@ class StepHeading(LinearModel):
 
     #     return Q
     
-    def get_state_model(self, **dynamic_params):
+    def get_transition_model(self, **dynamic_params):
         """
         Return the parameters of the Step Heading state model for Kalman Filter.
         - Inputs:
@@ -363,7 +375,7 @@ class StepHeading(LinearModel):
 #         self.std_L = static_params['std_L']
 #         self.std_alpha = static_params['std_alpha']
 
-#         # State model parameters
+#         # Transition model parameters
 #         self.F = np.array([[1, 0],
 #                            [0, 1]])
 #         self.B = np.eye(2)*self.L
@@ -406,7 +418,7 @@ class StepHeading(LinearModel):
 
 #         return Q
     
-#     def get_state_model(self, **dynamic_params):
+#     def get_transition_model(self, **dynamic_params):
 #         """
 #         Return the parameters of the Step Heading state model for Kalman Filter.
 #         - Inputs:
@@ -450,7 +462,7 @@ class StepHeading(LinearModel):
 #         self.std_L = static_params['std_L']
 #         self.std_alpha = static_params['std_alpha']
 
-#         # State model parameters
+#         # Transition model parameters
 #         self.F = np.array([[1, 0, 0],
 #                            [0, 1, 0],
 #                            [0, 0, 0]])
@@ -505,7 +517,7 @@ class StepHeading(LinearModel):
 
 #         return Q
     
-#     def get_state_model(self, **dynamic_params):
+#     def get_transition_model(self, **dynamic_params):
 #         """
 #         Return the parameters of the Step Heading state model for Kalman Filter.
 #         - Inputs:
@@ -631,7 +643,7 @@ class StepHeading(LinearModel):
 #         u = np.array([np.cos(alpha), np.sin(alpha)]).reshape(-1, 1)
 #         return u
     
-#     def get_state_model(self, **dynamic_params):
+#     def get_transition_model(self, **dynamic_params):
 #         """
 #         Return the parameters of the Step Heading state model for Kalman Filter.
 #         - Inputs:

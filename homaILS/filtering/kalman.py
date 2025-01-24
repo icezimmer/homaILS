@@ -32,19 +32,19 @@ class KalmanFilter:
         """
         Predict the next state and covariance.
         - Inputs:
-            - dynamic_params : dict, Dynamic parameters for the state model. Must match the model's get_state_model() method.
+            - dynamic_params : dict, Dynamic parameters for the transition model. Must match the model's get_transition_model() method.
         """
         if self.x is None:
             raise ValueError("State is not initialized. Use initialize() method.")
         
         # Get the state model parameters updated with dynamic parameters
-        F, _, _, Q = self.model.get_state_model(**dynamic_params)
+        _ = self.model.get_transition_model(**dynamic_params)
                
         # Predict the state
-        self.x = self.model.step(self.x)
+        self.x = self.model.a_priori_state(self.x)
         
         # Predict the error covariance
-        self.P = F @ self.P @ F.T + Q
+        self.P = self.model.a_priori_covariance(self.P)
 
     def update(self, z, **dynamic_params):
         """
