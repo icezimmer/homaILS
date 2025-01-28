@@ -105,7 +105,7 @@ def main():
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
             kf.predict(alpha=row['Heading'], L=row['Step'])
-            model_state = kf.model.a_priori_state(model_state)
+            model_state = kf.a_priori_state(model_state, kf.model.F, kf.model.B, kf.model.u)
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():

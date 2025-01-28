@@ -2,15 +2,15 @@ import pandas as pd
 import numpy as np
 from homaILS.modeling.linear import StepHeading
 from homaILS.filtering.kalman import KalmanFilter
-from homaILS.plotting.static import plot_2D_localization, map_2D_localization
-from homaILS.plotting.dynamic import animate_2D_localization
+from homaILS.plotting.static import plot_2D_localization, plot_2D_localization_errors, map_2D_localization
+from homaILS.plotting.dynamic import animate_2D_localization, animate_2D_localization_errors
 from homaILS.printing.results import print_2D_localization
 from homaILS.processing.geographic import geodetic_to_localutm
 
 STEP_LENGTH = 0.65
-STEP_STD = 0.1
+STEP_STD = 0.3
 MAGNETIC_DECLINATION = np.radians(3+(2/3))
-HEADING_STD = np.radians(10)
+HEADING_STD = np.radians(20)
 
 
 def arg_parser():
@@ -111,8 +111,8 @@ def main():
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
             kf.predict(alpha=row['Heading'], L=row['Step'])
-            model_state = kf.model.a_priori_state(model_state)
-            model_covariance = kf.model.a_priori_covariance(model_covariance)
+            model_state = kf.a_priori_state(model_state, kf.model.F, kf.model.B, kf.model.u)
+            model_covariance = kf.a_priori_covariance(model_covariance, kf.model.F, kf.model.Q)
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
@@ -157,9 +157,9 @@ def main():
                 estimated_errors.append(None)
 
     # print_2D_localization(model_positions, observed_positions, estimated_positions)
-    plot_2D_localization(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
+    plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
     # map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
-    animate_2D_localization(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
+    animate_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
 if __name__ == "__main__":
