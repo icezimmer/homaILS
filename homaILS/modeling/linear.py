@@ -41,33 +41,6 @@ class LinearModel:
         """
         # Force the user to provide the dynamic parameters
         return self.H, self.R
-
-    def a_priori_state(self, x):
-        """
-        Compute the a priori state estimate given the current state estimate and control input.
-        - Input:
-            - x : np.array (State estimate at time n given observations up to and including at time m ≤ n).
-        - Return:
-            - x : np.array (New a priori state estimate at time n+1 given the old observations).
-        """
-        x = x.reshape(-1, 1)
-        if self.u is None:
-            x = self.F @ x
-        else:
-            u = self.u.reshape(-1, 1)
-            x = self.F @ x + self.B @ u
-        return x
-    
-    def a_priori_covariance(self, P):
-        """
-        Compute the a priori estimate covariance matrix.
-        - Input:
-            - P : np.array (Estimate covariance matrix at time n given observations up to and including at time m ≤ n).
-        - Return:
-            - P : np.array (New a priori estimate covariance matrix at time n+1 given the old observations).
-        """
-        P = self.F @ P @ self.F.T + self.Q
-        return P
         
 
 class UniformLinearMotion(LinearModel):
