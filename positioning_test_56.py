@@ -8,9 +8,9 @@ from homaILS.printing.results import print_2D_localization
 from homaILS.processing.geographic import geodetic_to_localutm
 
 STEP_LENGTH = 0.65
-STEP_STD = 0.3
+STEP_STD = 0.1
 MAGNETIC_DECLINATION = np.radians(3+(2/3))
-HEADING_STD = np.radians(20)
+HEADING_STD = np.radians(10)
 
 
 def arg_parser():
