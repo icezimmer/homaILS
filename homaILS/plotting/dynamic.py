@@ -198,19 +198,19 @@ def animate_2D_localization_errors(model_positions, observed_positions, estimate
         # Update uncertainty circles
         if model_positions[current_index] is not None and model_errors[current_index] is not None:
             x, y = model_positions[current_index]
-            radius = np.sqrt(np.trace(model_errors[current_index]))  # sqrt(trace(Q))
+            radius = np.sqrt(np.trace(model_errors[current_index]) / 2)
             model_circle.set_center((x, y))
             model_circle.set_radius(radius)
 
         if observed_positions[current_index] is not None and observed_errors[current_index] is not None:
             x, y = observed_positions[current_index]
-            radius = np.sqrt(np.trace(observed_errors[current_index]))  # sqrt(trace(Q))
+            radius = np.sqrt(np.trace(observed_errors[current_index] / 2))
             observed_circle.set_center((x, y))
             observed_circle.set_radius(radius)
 
         if estimated_positions[current_index] is not None and estimated_errors[current_index] is not None:
             x, y = estimated_positions[current_index]
-            radius = np.sqrt(np.trace(estimated_errors[current_index]))  # sqrt(trace(Q))
+            radius = np.sqrt(np.trace(estimated_errors[current_index] / 2))
             estimated_circle.set_center((x, y))
             estimated_circle.set_radius(radius)
 

@@ -42,12 +42,6 @@ def plot_2D_localization(model_positions, observed_positions, estimated_position
     plt.show()
 
 
-def plot_uncertainty_circle(position, cov, color, ax):
-    radius = np.sqrt(np.trace(cov))  # sqrt(trace(Q))
-    circle = Circle(position, radius, color=color, alpha=0.2, fill=True)
-    ax.add_patch(circle)
-
-
 def plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors):
     """
     Plot the 2D localization results using simplified circular uncertainty visualization.
@@ -76,6 +70,11 @@ def plot_2D_localization_errors(model_positions, observed_positions, estimated_p
     if estimated_positions:
         est_xs, est_ys = zip(*estimated_positions)
         ax.plot(est_xs, est_ys, 'b.', label='Kalman Estimates')
+
+    def plot_uncertainty_circle(position, cov, color, ax):
+        radius = np.sqrt(np.trace(cov) / 2)
+        circle = Circle(position, radius, color=color, alpha=0.2, fill=True)
+        ax.add_patch(circle)
 
     if model_errors:
         for pos, cov in zip(model_positions, model_errors):
@@ -159,3 +158,72 @@ def map_2D_localization(model_positions, observed_positions, estimated_positions
 
     map_.save('2D_Localization_Map.html')
     webbrowser.open(url='2D_Localization_Map.html', new=1)
+
+
+def map_2D_localization_errors(model_positions, observed_positions, estimated_positions,
+                               model_errors, observed_errors, estimated_errors,
+                               lon0_deg, lat0_deg, utm_zone, northern_hemisphere):
+    """
+    Plots the 2D localization results with uncertainty on an interactive map using Folium.
+    """
+    # Convert positions from UTM to lat/lon
+    def convert_positions(positions):
+        converted = []
+        for pos in positions:
+            if pos is None:
+                continue
+            if isinstance(pos, np.ndarray):
+                pos = tuple(pos)
+            if isinstance(pos, (list, tuple)) and len(pos) == 2:
+                try:
+                    converted.append(localutm_to_geodetic(pos[0], pos[1], lon0_deg, lat0_deg, utm_zone, northern_hemisphere))
+                except Exception as e:
+                    print(f"Warning: Skipping invalid position {pos} - {e}")
+            else:
+                print(f"Warning: Invalid position format {pos}")
+        return converted
+    
+    model_latlon = convert_positions(model_positions)
+    observed_latlon = convert_positions(observed_positions)
+    estimated_latlon = convert_positions(estimated_positions)
+
+    # Convert errors to radii
+    def compute_radii(errors):
+        return [np.sqrt(np.trace(cov) / 2) if cov is not None else 0 for cov in errors]
+
+    model_radii = compute_radii(model_errors)
+    observed_radii = compute_radii(observed_errors)
+    estimated_radii = compute_radii(estimated_errors)
+    
+    # Determine the map center
+    if model_latlon:
+        center_lon, center_lat = model_latlon[0]
+    else:
+        raise ValueError("Model positions list is empty; cannot determine map center.")
+
+    # Create a folium map
+    map_ = folium.Map(location=[center_lat, center_lon], zoom_start=19)
+
+    # Plot points with uncertainty
+    for (lon, lat), radius in zip(model_latlon, model_radii):
+        folium.Circle([lat, lon], radius=radius, color='green', fill=True, fill_color='green', fill_opacity=0.2).add_to(map_)
+    
+    for (lon, lat), radius in zip(observed_latlon, observed_radii):
+        folium.Circle([lat, lon], radius=radius, color='red', fill=True, fill_color='red', fill_opacity=0.2).add_to(map_)
+    
+    for (lon, lat), radius in zip(estimated_latlon, estimated_radii):
+        folium.Circle([lat, lon], radius=radius, color='blue', fill=True, fill_color='blue', fill_opacity=0.2).add_to(map_)
+
+    # Add a legend
+    legend_html = """
+    <div style="position: fixed; top: 50px; right: 50px; z-index:9999; font-size:14px; background-color:white; padding: 10px; border: 2px solid black;">
+    <p><span style="color:green">Model Trajectory (with uncertainty)</span></p>
+    <p><span style="color:red">Observations (with uncertainty)</span></p>
+    <p><span style="color:blue">Kalman Estimates (with uncertainty)</span></p>
+    </div>
+    """
+    map_.get_root().html.add_child(folium.Element(legend_html))
+
+    map_.save('2D_Localization_Map_with_Errors.html')
+    webbrowser.open(url='2D_Localization_Map_with_Errors.html', new=1)
+

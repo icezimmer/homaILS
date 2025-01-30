@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from homaILS.modeling.linear import StepHeading
 from homaILS.filtering.kalman import KalmanFilter
-from homaILS.plotting.static import plot_2D_localization, plot_2D_localization_errors, map_2D_localization
+from homaILS.plotting.static import plot_2D_localization, plot_2D_localization_errors, map_2D_localization, map_2D_localization_errors
 from homaILS.plotting.dynamic import animate_2D_localization, animate_2D_localization_errors
 from homaILS.printing.results import print_2D_localization
 from homaILS.processing.geographic import geodetic_to_localutm
@@ -157,9 +157,10 @@ def main():
                 estimated_errors.append(None)
 
     # print_2D_localization(model_positions, observed_positions, estimated_positions)
-    plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
+    # plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
     # map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
-    animate_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
+    map_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
+    # animate_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
 if __name__ == "__main__":
