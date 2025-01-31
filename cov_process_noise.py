@@ -6,8 +6,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='2D Gaussian Distribution with Declination')
     parser.add_argument('--length', type=float, required=True, help='Length in meters of the step size')
     parser.add_argument('--dlength', type=float, required=True, help='Change in meters of the step size')
-    parser.add_argument('--angle', type=float, required=True, help='Angle in radians')
-    parser.add_argument('--dangle', type=float, required=True, help='Angle change in radians')
+    parser.add_argument('--angle', type=float, required=True, help='Azimuth ngle in degrees')
+    parser.add_argument('--dangle', type=float, required=True, help='Angle change in degrees')
     return parser.parse_args()
 
 def main():
@@ -15,23 +15,18 @@ def main():
     args = parse_args()
     L = args.length
     dL = args.dlength
-    alpha = args.angle
-    dalpha = args.dangle
+    theta = np.radians(args.angle)
+    dtheta = np.radians(args.dangle)
 
     # Set the new direction
-    alpha = np.pi/2 - alpha
+    theta = np.pi/2 - theta
 
-    # Compute dx and dy
-    dx = (L + dL) - (L - dL) * np.cos(dalpha)
-    dy = 2 * (L + dL) * np.sin(dalpha)
-
-    # Variance
-    sigma_x2 = dx**2
-    sigma_y2 = dy**2
+    sigma_x2 = dL**2
+    sigma_y2 = (L * np.sin(dtheta))**2
 
     # Means
-    mu_x = L * np.cos(alpha)
-    mu_y = L * np.sin(alpha)
+    mu_x = L * np.cos(theta)
+    mu_y = L * np.sin(theta)
 
     # Create a grid
     x = np.linspace(-1, 1, 100)
@@ -39,13 +34,13 @@ def main():
     X, Y = np.meshgrid(x, y)
 
     # Compute the covariance matrix
-    cos_alpha = np.cos(alpha)
-    sin_alpha = np.sin(alpha)
+    cos_theta = np.cos(theta)
+    sin_theta = np.sin(theta)
     cov_matrix = np.array([
-        [sigma_x2 * cos_alpha**2 + sigma_y2 * sin_alpha**2,
-        (sigma_x2 - sigma_y2) * cos_alpha * sin_alpha],
-        [(sigma_x2 - sigma_y2) * cos_alpha * sin_alpha,
-        sigma_x2 * sin_alpha**2 + sigma_y2 * cos_alpha**2]
+        [sigma_x2 * cos_theta**2 + sigma_y2 * sin_theta**2,
+        (sigma_x2 - sigma_y2) * cos_theta * sin_theta],
+        [(sigma_x2 - sigma_y2) * cos_theta * sin_theta,
+        sigma_x2 * sin_theta**2 + sigma_y2 * cos_theta**2]
     ])
 
     # Compute the Gaussian
