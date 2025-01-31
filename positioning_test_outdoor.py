@@ -2,26 +2,25 @@ import pandas as pd
 import numpy as np
 from homaILS.modeling.linear import StepHeading
 from homaILS.filtering.kalman import KalmanFilter
-from homaILS.plotting.static import plot_2D_localization, map_2D_localization
-from homaILS.plotting.dynamic import animate_2D_localization
+from homaILS.plotting.static import plot_2D_localization, plot_2D_localization_errors, map_2D_localization, map_2D_localization_errors
+from homaILS.plotting.dynamic import animate_2D_localization, animate_2D_localization_errors
 from homaILS.printing.results import print_2D_localization
 from data.CNR_Outdoor.data_utils import load_pdr_dataset, load_gps_dataset
 from homaILS.processing.geographic import geodetic_to_enu, geodetic_to_localutm, localutm_to_geodetic
 from pyproj import Proj
+import argparse
 
-STEP_LENGTH = 0.7
-STEP_STD = 0.1
-MAGNETIC_DECLINATION = np.radians(3+(2/3))
-HEADING_STD = np.radians(10)
+
+MAGNETIC_DECLINATION = np.radians(3+(2/3))  # Pisa
+STEP_LENGTH = 0.75
+STEP_STD = 0.4
+HEADING_STD = np.radians(5)
 
 
 def arg_parser():
-    import argparse
-
     parser = argparse.ArgumentParser(description='Positioning test outdoor')
     parser.add_argument('--window_heading', type=int, default=1, help='Window size for moving average of heading')
     args = parser.parse_args()
-
     return args
 
 
@@ -78,7 +77,7 @@ def main():
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
     print(df)
 
-    model = StepHeading(std_L=STEP_STD, std_alpha=HEADING_STD)
+    model = StepHeading(std_L=STEP_STD, std_theta=HEADING_STD)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -92,11 +91,15 @@ def main():
 
     # model initial state equals the initial state
     model_state = x0
+    model_covariance = P0
 
     # Store results for analysis
     model_positions = []
     observed_positions = []
     estimated_positions = []
+    model_errors = []
+    observed_errors = []
+    estimated_errors = []
     timestamps = df['Timestamp'].values
 
     for _, row in df.iterrows():
@@ -104,22 +107,29 @@ def main():
 
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
-            kf.predict(alpha=row['Heading'], L=row['Step'])
+            kf.predict(theta=row['Heading'], L=row['Step'])
             model_state = kf.a_priori_state(model_state, kf.model.F, kf.model.B, kf.model.u)
+            model_covariance = kf.a_priori_covariance(model_covariance, kf.model.F, kf.model.Q)
 
             # GPS (observation)
             if not pd.isna(row[['E', 'N']]).any():
                 z = row[['E', 'N']].values.reshape(-1, 1)
                 kf.update(z, std_r=row['HorizontalAccuracy'])
-                model_positions.append(model_state[:2, 0])
-                estimated_positions.append(kf.x[:2, 0])
+                model_positions.append(model_state[:2, :])
+                estimated_positions.append(kf.x[:2, :])
                 observed_positions.append(z)
+                model_errors.append(model_covariance)
+                observed_errors.append(kf.model.R)
+                estimated_errors.append(kf.P)
 
             # NO GPS
             else:
-                model_positions.append(model_state[:2, 0])
-                estimated_positions.append(kf.x[:2, 0])
+                model_positions.append(model_state[:2, :])
+                estimated_positions.append(kf.x[:2, :])
                 observed_positions.append(None)
+                model_errors.append(model_covariance)
+                observed_errors.append(None)
+                estimated_errors.append(kf.P)
 
         # NO STEP
         else:
@@ -128,19 +138,26 @@ def main():
                 z = row[['E', 'N']].values.reshape(-1, 1)
                 kf.update(z, std_r=row['HorizontalAccuracy'])
                 model_positions.append(None)
-                estimated_positions.append(kf.x[:2, 0])
+                estimated_positions.append(kf.x[:2, :])
                 observed_positions.append(z)
+                model_errors.append(None)
+                observed_errors.append(kf.model.R)
+                estimated_errors.append(kf.P)
 
             # NO GPS
             else:
                 observed_positions.append(None)
                 model_positions.append(None)
                 estimated_positions.append(None)
+                model_errors.append(None)
+                observed_errors.append(None)
+                estimated_errors.append(None)
 
     # print_2D_localization(model_positions, observed_positions, estimated_positions)
-    # plot_2D_localization(model_positions, observed_positions, estimated_positions)
+    plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
     map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
-    # animate_2D_localization(model_positions, observed_positions, estimated_positions, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
+    # map_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
+    # animate_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
 if __name__ == "__main__":

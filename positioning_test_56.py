@@ -6,20 +6,19 @@ from homaILS.plotting.static import plot_2D_localization, plot_2D_localization_e
 from homaILS.plotting.dynamic import animate_2D_localization, animate_2D_localization_errors
 from homaILS.printing.results import print_2D_localization
 from homaILS.processing.geographic import geodetic_to_localutm
+import argparse
 
+
+MAGNETIC_DECLINATION = np.radians(3+(2/3))  # Pisa
 STEP_LENGTH = 0.65
 STEP_STD = 0.1
-MAGNETIC_DECLINATION = np.radians(3+(2/3))
-HEADING_STD = np.radians(10)
+HEADING_STD = np.radians(45)
 
 
 def arg_parser():
-    import argparse
-
     parser = argparse.ArgumentParser(description='Positioning test 56')
     parser.add_argument('--window_heading', type=int, default=1, help='Window size for moving average of heading')
     args = parser.parse_args()
-
     return args
 
 
@@ -72,15 +71,15 @@ def main():
     gps_df[['E', 'N']] = gps_df.apply(lambda row:  geodetic_to_localutm(row['Longitude'], row['Latitude'], lon0_deg, lat0_deg, 33, True), axis=1).apply(pd.Series)
     print(gps_df)
     # Drop even rows
-    # gps_df = gps_df.iloc[::2]
+    gps_df = gps_df.iloc[::2]
 
     df = pd.merge(pdr_df, gps_df, on='Timestamp', how='outer')
     df = df[['Timestamp', 'Step', 'Heading', 'E', 'N', 'HorizontalAccuracy']]
     print(df)
 
-    pause = input("Press Enter to continue...")
+    # pause = input("Press Enter to continue...")
 
-    model = StepHeading(std_L=STEP_STD, std_alpha=HEADING_STD)
+    model = StepHeading(std_L=STEP_STD, std_theta=HEADING_STD)
     
     # Initialize the filter
     kf = KalmanFilter(model)
@@ -110,7 +109,7 @@ def main():
 
         # STEP
         if not pd.isna(row[['Step', 'Heading']]).any():
-            kf.predict(alpha=row['Heading'], L=row['Step'])
+            kf.predict(theta=row['Heading'], L=row['Step'])
             model_state = kf.a_priori_state(model_state, kf.model.F, kf.model.B, kf.model.u)
             model_covariance = kf.a_priori_covariance(model_covariance, kf.model.F, kf.model.Q)
 
@@ -157,9 +156,9 @@ def main():
                 estimated_errors.append(None)
 
     # print_2D_localization(model_positions, observed_positions, estimated_positions)
-    # plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
-    # map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
-    map_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
+    plot_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors)
+    map_2D_localization(model_positions, observed_positions, estimated_positions, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
+    # map_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, lon0_deg=lon0_deg, lat0_deg=lat0_deg, utm_zone=33, northern_hemisphere=True)
     # animate_2D_localization_errors(model_positions, observed_positions, estimated_positions, model_errors, observed_errors, estimated_errors, timestamps, min_x=-300, max_x=300, min_y=-300, max_y=300)
 
 
