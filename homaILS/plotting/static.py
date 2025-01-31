@@ -90,7 +90,7 @@ def plot_2D_localization_errors(model_positions, observed_positions, estimated_p
 
     ax.set_xlabel('X Position')
     ax.set_ylabel('Y Position')
-    ax.set_title('2D Localization - Simplified Uncertainty')
+    ax.set_title('2D Localization - Uncertainty')
     ax.legend()
     ax.grid(True)
     plt.show()
@@ -125,14 +125,8 @@ def map_2D_localization(model_positions, observed_positions, estimated_positions
     observed_latlon = convert_positions(observed_positions)
     estimated_latlon = convert_positions(estimated_positions)
 
-    # Determine the map center
-    if model_latlon:
-        center_lon, center_lat = model_latlon[0]
-    else:
-        raise ValueError("Model positions list is empty; cannot determine map center.")
-
     # Create a folium map
-    map_ = folium.Map(location=[center_lat, center_lon], zoom_start=19)
+    map_ = folium.Map(location=[lat0_deg, lon0_deg], zoom_start=19)
 
     # Plot model trajectory
     for lon, lat in model_latlon:
@@ -160,6 +154,7 @@ def map_2D_localization(model_positions, observed_positions, estimated_positions
     webbrowser.open(url='2D_Localization_Map.html', new=1)
 
 
+# TODO: Check radii on the map, they seems wrong
 def map_2D_localization_errors(model_positions, observed_positions, estimated_positions,
                                model_errors, observed_errors, estimated_errors,
                                lon0_deg, lat0_deg, utm_zone, northern_hemisphere):
@@ -187,22 +182,17 @@ def map_2D_localization_errors(model_positions, observed_positions, estimated_po
     observed_latlon = convert_positions(observed_positions)
     estimated_latlon = convert_positions(estimated_positions)
 
-    # Convert errors to radii
-    def compute_radii(errors):
-        return [np.sqrt(np.trace(cov) / 2) if cov is not None else 0 for cov in errors]
-
-    model_radii = compute_radii(model_errors)
-    observed_radii = compute_radii(observed_errors)
-    estimated_radii = compute_radii(estimated_errors)
+    # Convert errors from meters (UTM) to degrees for accurate map plotting
+    def compute_radii(errors, lat):
+        meters_per_degree = 111320 * np.cos(np.radians(lat))  # Adjust for latitude
+        return [np.sqrt(np.trace(cov) / 2) / meters_per_degree if cov is not None else 0 for cov in errors]
     
-    # Determine the map center
-    if model_latlon:
-        center_lon, center_lat = model_latlon[0]
-    else:
-        raise ValueError("Model positions list is empty; cannot determine map center.")
+    model_radii = compute_radii(model_errors, lat0_deg)
+    observed_radii = compute_radii(observed_errors, lat0_deg)
+    estimated_radii = compute_radii(estimated_errors, lat0_deg)
 
     # Create a folium map
-    map_ = folium.Map(location=[center_lat, center_lon], zoom_start=19)
+    map_ = folium.Map(location=[lat0_deg, lon0_deg], zoom_start=19)
 
     # Plot points with uncertainty
     for (lon, lat), radius in zip(model_latlon, model_radii):
@@ -226,4 +216,3 @@ def map_2D_localization_errors(model_positions, observed_positions, estimated_po
 
     map_.save('2D_Localization_Map_with_Errors.html')
     webbrowser.open(url='2D_Localization_Map_with_Errors.html', new=1)
-
